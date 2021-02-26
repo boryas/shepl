@@ -22,7 +22,8 @@ pub enum Expr {
   Int64(i64),
   Iden(String),
   Apply(Box<Expr>, Vec<Expr>),
-  BinOp(BinOp, Box<Expr>, Box<Expr>)
+  BinOp(BinOp, Box<Expr>, Box<Expr>),
+  Cond(Box<Expr>, Box<Expr>, Box<Expr>)
 }
 
 fn int64(input: &str) -> IResult<&str, Expr> {
@@ -64,6 +65,14 @@ fn binop(input: &str) -> IResult<&str, Expr> {
 fn apply(input: &str) -> IResult<&str, Expr> {
   let (input, (f, _, v)) = tuple((identifier, multispace1, separated_list1(multispace1, single)))(input)?;
   Ok((input, Expr::Apply(Box::new(f), v)))
+}
+
+fn cond(input: &str) -> IResult<&str, Expr> {
+  let (input, (_, _, pred, _, _, _, br1, _, _, _, br2)) =
+    tuple((tag("if"), multispace1, expr, multispace1,
+           tag("then"), multispace1, expr, multispace1,
+           tag("else"), multispace1, expr))(input)?;
+  Ok((input, Expr::Cond(Box::new(pred), Box::new(br1), Box::new(br2))))
 }
 
 fn expr(input: &str) -> IResult<&str, Expr> {
