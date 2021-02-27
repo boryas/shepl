@@ -2,7 +2,7 @@ extern crate nom;
 use nom::{
     branch::alt,
     bytes::complete::tag,
-    character::complete::{anychar, digit1, multispace0, multispace1, one_of},
+    character::complete::{alphanumeric0, anychar, digit1, multispace0, multispace1, one_of},
     combinator::{map_res, recognize, verify},
     multi::{many0, separated_list1},
     sequence::{delimited, tuple},
@@ -20,6 +20,7 @@ pub enum BinOp {
 #[derive(Debug, PartialEq)]
 pub enum Expr {
     UInt64(i64),
+    Str(String),
     Iden(String),
     Apply(Box<Expr>, Vec<Expr>),
     BinOp(BinOp, Box<Expr>, Box<Expr>),
@@ -31,6 +32,13 @@ fn uint64(input: &str) -> IResult<&str, Expr> {
     let (input, i) = map_res(digit1, |ds: &str| i64::from_str_radix(&ds, 10))(input)?;
     println!("u64! {}", input);
     Ok((input, Expr::UInt64(i)))
+}
+
+fn str(input: &str) -> IResult<&str, Expr> {
+    // TODO: decide what characters you want in string literals
+    // TODO: escape codes
+    let (input, s) = delimited(tag("\""), alphanumeric0, tag("\""))(input)?;
+    Ok((input, Expr::Str(s.to_string())))
 }
 
 fn iden_char(c: &char) -> bool {
@@ -63,7 +71,7 @@ fn paren(input: &str) -> IResult<&str, Expr> {
 
 fn single(input: &str) -> IResult<&str, Expr> {
     println!("single? {}", input);
-    let (input, e) = alt((uint64, iden, paren))(input)?;
+    let (input, e) = alt((uint64, iden, str, paren))(input)?;
     println!("single! {}", input);
     Ok((input, e))
 }
@@ -120,21 +128,10 @@ fn cond(input: &str) -> IResult<&str, Expr> {
 }
 
 fn expr(input: &str) -> IResult<&str, Expr> {
-    println!("expr? {}", input);
-    let (input, e) = alt((cond, apply, binop, single))(input)?;
-    println!("expr! {:?}", e);
-    Ok((input, e))
+    alt((cond, apply, binop, single))(input)
 }
 
-fn main() {
-    //println!("{:?}", apply("foo 42 43 44"));
-    //println!("{:?}", expr("42 + 43"));
-    // TODO: handle this case aka "Associativity Problem"
-    //println!("{:?}", expr("42 + 43 + 44"));
-    //println!("{:?}", expr("42 + (43 + 44)"));
-    println!("{:?}", expr("foo"));
-    println!("{:?}", expr("if 42 then 43 else 44"));
-}
+fn main() {}
 
 #[test]
 fn parse_iden() {
@@ -161,6 +158,11 @@ fn parse_ui64() {
 }
 
 #[test]
+fn parse_str() {
+    assert_eq!(str("\"hello\""), Ok(("", Expr::Str("hello".to_string()))));
+}
+
+#[test]
 fn parse_paren() {
     assert_eq!(paren("(42)"), Ok(("", Expr::UInt64(42))));
 }
@@ -180,7 +182,7 @@ fn parse_binop() {
             assert_eq!(*e1, Expr::Iden("foo".to_string()));
             assert_eq!(*e2, Expr::UInt64(42));
         }
-        _ => assert_eq!(true, false),
+        _ => assert!(false),
     };
 }
 
@@ -193,6 +195,23 @@ fn parse_apply() {
             //assert_eq!(*e2, Expr::UInt64(42));
             //TODO: test Vec contents
         }
-        _ => assert_eq!(true, false),
+        _ => assert!(false),
     };
+}
+
+#[test]
+fn parse_cond() {
+    match expr("if foo then 42 else 43") {
+        // TODO: more thorough testing of cond innards
+        Ok(("", Expr::Cond(p, b1, b2))) => {
+            assert_eq!(*p, Expr::Iden("foo".to_string()));
+            assert_eq!(*b1, Expr::UInt64(42));
+            assert_eq!(*b2, Expr::UInt64(43));
+        }
+        _ => assert!(false),
+    }
+
+    assert!(expr("if foo").is_err());
+    assert!(expr("if foo then 42").is_err());
+    assert!(expr("if then 42 else 42").is_err());
 }

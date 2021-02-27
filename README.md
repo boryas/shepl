@@ -19,6 +19,7 @@
 * exe
 * file
 * i/u8,16,32,64,128,256 (?)
+* string
 * path
 * ip4/6
 * stream
