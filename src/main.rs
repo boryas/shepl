@@ -27,9 +27,9 @@ pub enum Expr {
 }
 
 fn uint64(input: &str) -> IResult<&str, Expr> {
-    println!("uint64? {}", input);
+    println!("u64? {}", input);
     let (input, i) = map_res(digit1, |ds: &str| i64::from_str_radix(&ds, 10))(input)?;
-    println!("i64! {}", input);
+    println!("u64! {}", input);
     Ok((input, Expr::UInt64(i)))
 }
 
@@ -148,15 +148,15 @@ fn parse_iden() {
 }
 
 #[test]
-fn parse_i64() {
+fn parse_ui64() {
     assert_eq!(uint64("42"), Ok(("", Expr::UInt64(42))));
     assert_eq!(uint64("0"), Ok(("", Expr::UInt64(0))));
     assert_eq!(uint64("042"), Ok(("", Expr::UInt64(42))));
     assert_eq!(uint64("00"), Ok(("", Expr::UInt64(0))));
     assert!(uint64("").is_err());
     assert!(uint64("foo").is_err());
+    assert!(uint64("-42").is_err());
     // TODO:
-    // u64 size->error
     // test for leftovers after '4 2', '4.2'
 }
 
