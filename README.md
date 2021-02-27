@@ -23,6 +23,7 @@
 * path
 * ip4/6
 * stream
+* "columns" (tuple?)
 * vector
 * dict
 * socket

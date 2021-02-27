@@ -21,7 +21,7 @@ pub enum BinOp {
 
 #[derive(Debug, PartialEq)]
 pub enum Expr {
-    UInt64(i64),
+    UInt64(u64),
     Str(String),
     Iden(String),
     Apply(Box<Expr>, Vec<Expr>),
@@ -37,10 +37,8 @@ pub enum Err {
 }
 
 fn uint64(input: &str) -> IResult<&str, Expr> {
-    println!("u64? {}", input);
-    let (input, i) = map_res(digit1, |ds: &str| i64::from_str_radix(&ds, 10))(input)?;
-    println!("u64! {}", input);
-    Ok((input, Expr::UInt64(i)))
+    let (input, u) = map_res(digit1, |ds: &str| u64::from_str_radix(&ds, 10))(input)?;
+    Ok((input, Expr::UInt64(u)))
 }
 
 fn str(input: &str) -> IResult<&str, Expr> {
@@ -68,21 +66,21 @@ fn iden(input: &str) -> IResult<&str, Expr> {
         ))),
         valid_iden,
     )(input)?;
-    println!("iden! {}", input);
+    println!("iden! input: {}, id: {}", input, id);
     Ok((input, Expr::Iden(id.to_string())))
 }
 
 fn paren(input: &str) -> IResult<&str, Expr> {
     println!("paren? {}", input);
     let (input, inner) = delimited(tag("("), expr, tag(")"))(input)?;
-    println!("paren! {}", input);
+    println!("paren! {:?}", inner);
     Ok((input, inner))
 }
 
 fn single(input: &str) -> IResult<&str, Expr> {
     println!("single? {}", input);
     let (input, e) = alt((uint64, iden, str, paren))(input)?;
-    println!("single! {}", input);
+    println!("single! {}, {:?}", input, e);
     Ok((input, e))
 }
 
@@ -111,26 +109,21 @@ fn apply(input: &str) -> IResult<&str, Expr> {
     println!("apply? {}", input);
     let (input, (f, _, v)) =
         tuple((iden, multispace1, separated_list1(multispace1, single)))(input)?;
-    println!("apply! {}", input);
+    println!("apply!");
     Ok((input, Expr::Apply(Box::new(f), v)))
 }
 
 fn cond(input: &str) -> IResult<&str, Expr> {
     println!("cond? {}", input);
-    let (input, (_if, _w1, pred, _w2, _then, _w3, br1, _w4, _else, _w5, br2)) = tuple((
-        tag("if"),
-        multispace1,
-        expr,
-        multispace1,
-        tag("then"),
-        multispace1,
-        expr,
-        multispace1,
-        tag("else"),
-        multispace1,
-        expr,
-    ))(input)?;
-    println!("cond! {}", input);
+    let (input, _if) = tag("if")(input)?;
+    let (input, pred) = expr(input)?;
+    println!("cond: if {:?}", pred);
+    let (input, _then) = tag("then")(input)?;
+    let (input, br1) = expr(input)?;
+    println!("cond: if {:?} then {:?}", pred, br1);
+    let (input, _else) = tag("else")(input)?;
+    let (input, br2) = expr(input)?;
+    println!("cond: if {:?} then {:?} else {:?}", pred, br1, br2);
     Ok((
         input,
         Expr::Cond(Box::new(pred), Box::new(br1), Box::new(br2)),
@@ -141,12 +134,6 @@ fn expr(input: &str) -> IResult<&str, Expr> {
     delimited(multispace0, alt((cond, apply, binop, single)), multispace0)(input)
 }
 
-fn eval_binop(op: &BinOp, e1: &Expr, e2: &Expr) {
-    // types???
-    // recursively eval e1/e2
-    // match on op, do the right thing
-}
-
 // TODO: what is the return type? some kind of value type...
 fn eval(e: Expr) -> String {
     println!("EVAL! {:?}", e);
@@ -154,9 +141,9 @@ fn eval(e: Expr) -> String {
         Expr::UInt64(i) => format!("{}:u64", i),
         Expr::Str(s) => format!("{}:str", s),
         Expr::Iden(n) => format!("iden: {}", n), // It should be an empty apply!?!
-        Expr::Apply(f, args) => format!("placeholder. apply"),
-        Expr::BinOp(op, e1, e2) => format!("placeholder. binop"),
-        Expr::Cond(pred, br1, br2) => format!("placeholder. cond"),
+        Expr::Apply(_f, _args) => format!("placeholder. apply"),
+        Expr::BinOp(_op, _e1, _e2) => format!("placeholder. binop"),
+        Expr::Cond(_pred, _br1, _br2) => format!("placeholder. cond"),
     }
 }
 
@@ -170,7 +157,7 @@ fn parse(input: &str) -> Result<Expr, Err> {
 fn read() -> Result<String, Err> {
     let mut l = String::new();
     match std::io::stdin().read_line(&mut l) {
-        Ok(n) => Ok(l),
+        Ok(_) => Ok(l),
         _ => Err(Err::Read),
     }
 }
@@ -267,14 +254,14 @@ fn parse_apply() {
 
 #[test]
 fn parse_cond() {
-    match expr("if foo then 42 else 43") {
-        // TODO: more thorough testing of cond innards
+    let c = expr("if foo then 42 else 43");
+    match c {
         Ok(("", Expr::Cond(p, b1, b2))) => {
             assert_eq!(*p, Expr::Iden("foo".to_string()));
             assert_eq!(*b1, Expr::UInt64(42));
             assert_eq!(*b2, Expr::UInt64(43));
         }
-        _ => assert!(false),
+        _ => { println!("{:?}", c); assert!(false) },
     }
 
     assert!(expr("if foo").is_err());
