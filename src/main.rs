@@ -160,6 +160,22 @@ fn eval_iden(env: &Env, name: &str) -> Result<Value, Err> {
     }
 }
 
+
+fn eval_binop(env: &mut Env, op: BinOp, left: Box<Expr>, right: Box<Expr>) -> Result<Value, Err> {
+    let lv = eval(env, *left)?;
+    let rv = eval(env, *right)?;
+    match (lv, rv) {
+        (Value::UInt64(l), Value::UInt64(r)) =>
+            match op {
+                BinOp::Add => Ok(Value::UInt64(l+r)),
+                BinOp::Sub => Ok(Value::UInt64(l-r)),
+                BinOp::Mul => Ok(Value::UInt64(l*r)),
+                BinOp::Div => Ok(Value::UInt64(l/r)),
+            },
+        _ => Err(Err::Eval)
+    }
+}
+
 fn eval_cond(env: &mut Env, pred: Box<Expr>, br1: Box<Expr>, br2: Box<Expr>) -> Result<Value, Err> {
     let p = eval(env, *pred)?;
     let truth =
@@ -181,13 +197,12 @@ fn eval_assign(env: &mut Env, name: &str, expr: Box<Expr>) -> Result<Value, Err>
 }
 
 fn eval(env: &mut Env, expr: Expr) -> Result<Value, Err> {
-    println!("EVAL! {:?}", expr);
     match expr {
         Expr::UInt64(i) => Ok(Value::UInt64(i)),
         Expr::Str(s) => Ok(Value::Str(s)),
         Expr::Iden(n) => eval_iden(env, &n),
         Expr::Apply(_f, _args) => Err(Err::Eval),
-        Expr::BinOp(_op, _e1, _e2) => Err(Err::Eval),
+        Expr::BinOp(op, e1, e2) => eval_binop(env, op, e1, e2),
         Expr::Cond(pred, br1, br2) => eval_cond(env, pred, br1, br2),
         Expr::Assign(n, expr) => eval_assign(env, &n, expr),
     }
