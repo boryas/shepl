@@ -160,13 +160,26 @@ fn eval_iden(env: &Env, name: &str) -> Result<Value, Err> {
     }
 }
 
+fn eval_cond(env: &mut Env, pred: Box<Expr>, br1: Box<Expr>, br2: Box<Expr>) -> Result<Value, Err> {
+    let p = eval(env, *pred)?;
+    let truth =
+        match p {
+            Value::UInt64(u) => u > 0,
+            Value::Str(s) => !s.is_empty()
+        };
+    if truth {
+        eval(env, *br1)
+    } else {
+        eval(env, *br2)
+    }
+}
+
 fn eval_assign(env: &mut Env, name: &str, expr: Box<Expr>) -> Result<Value, Err> {
     let v = eval(env, *expr)?;
     env.bindings.insert(name.to_string(), v.clone());
     Ok(v.clone())
 }
 
-// TODO: what is the return type? some kind of value type...
 fn eval(env: &mut Env, expr: Expr) -> Result<Value, Err> {
     println!("EVAL! {:?}", expr);
     match expr {
@@ -175,7 +188,7 @@ fn eval(env: &mut Env, expr: Expr) -> Result<Value, Err> {
         Expr::Iden(n) => eval_iden(env, &n),
         Expr::Apply(_f, _args) => Err(Err::Eval),
         Expr::BinOp(_op, _e1, _e2) => Err(Err::Eval),
-        Expr::Cond(_pred, _br1, _br2) => Err(Err::Eval),
+        Expr::Cond(pred, br1, br2) => eval_cond(env, pred, br1, br2),
         Expr::Assign(n, expr) => eval_assign(env, &n, expr),
     }
 }
