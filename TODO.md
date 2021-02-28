@@ -16,14 +16,32 @@ decent error handling
 ## cleanup
 organize into lib/main
 play with no-copy on &str instead of String (input lifetime)
-get rid of unneeded lets/Oks when you can just return combinator calls
 proper support for associativity, not just "bin" in binop
-think of lifetimes cleverly?
+lifetime of AST/Env contents
 
-store input lines
-everything thence refers back to it???
+## important Qs
+integer types?!
+strs vs idens
+applies vs idens
 
-OR
+What (if anything?) is the difference between
 
-keep copying as we do now
-use clone to keep it explicit
+$ let ls = 3
+$ ls
+> 3
+
+and
+
+$ ls
+> foo bar baz
+
+what about
+
+$ let x = 3
+$ ls x
+should it be `ls 3` or `ls x` ??? How does the let affect it?
+
+trivial solution: $x for bound vars
+solution 2:       function types and proper apply, unbound functions are a
+                  lookup on PATH for a '-> Str'
+solution 3:       pre-bind PATH, use when parsing/eval-ing
