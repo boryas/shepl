@@ -26,3 +26,4 @@ everything thence refers back to it???
 OR
 
 keep copying as we do now
+use clone to keep it explicit
