@@ -1,47 +1,21 @@
 ## now
 basic type system to make eval possible
-define a simple env
-interpreter
-hack on path/env till you can run ls
 proper types for repl (particularly eval)
 
 ## future
+decent error handling
+does "COMPILE" make sense?
+  dry run?
+type inference (?)
 all types
 loops
 functions
+scopes
+literals for s[] l[] d[]
+set notation (s[x | x in ys, x > 2])
 pipes/streams
-type inference
-decent error handling
 
 ## cleanup
-organize into lib/main
-play with no-copy on &str instead of String (input lifetime)
+organize into lib/bin
 proper support for associativity, not just "bin" in binop
-lifetime of AST/Env contents
-
-## important Qs
-integer types?!
-strs vs idens
-applies vs idens
-
-What (if anything?) is the difference between
-
-$ let ls = 3
-$ ls
-> 3
-
-and
-
-$ ls
-> foo bar baz
-
-what about
-
-$ let x = 3
-$ ls x
-should it be `ls 3` or `ls x` ??? How does the let affect it?
-
-trivial solution: $x for bound vars
-solution 2:       function types and proper apply, unbound functions are a
-                  lookup on PATH for a '-> Str'
-solution 3:       pre-bind PATH, use when parsing/eval-ing
+lifetime of AST/Env contents. Ideally, they would be references to the env? How to build up original values which are made deep nested? Box or Rc?
