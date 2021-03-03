@@ -78,14 +78,15 @@ fn binop(input: &str) -> IResult<&str, Expr> {
     ))
 }
 
-pub fn apply(input: &str) -> IResult<&str, Expr> {
-    let (input, (f, _, v)) =
-        tuple((iden, multispace1, separated_list1(multispace1, single)))(input)?;
+fn cmd(input: &str) -> IResult<&str, Expr> {
+    let (input, f) = iden(input)?;
+    let (input, _) = multispace1(input)?;
+    let (input, v) = separated_list1(multispace1, single)(input)?;
     let name = match f {
         Expr::Iden(name) => name,
         _ => unreachable!(),
     };
-    Ok((input, Expr::Apply(name, v)))
+    Ok((input, Expr::Cmd(name, v)))
 }
 
 fn cond(input: &str) -> IResult<&str, Expr> {
@@ -114,5 +115,5 @@ fn assign(input: &str) -> IResult<&str, Expr> {
 }
 
 pub fn expr(input: &str) -> IResult<&str, Expr> {
-    delimited(multispace0, alt((assign, cond, apply, binop, single)), multispace0)(input)
+    delimited(multispace0, alt((assign, cond, cmd, binop, single)), multispace0)(input)
 }
