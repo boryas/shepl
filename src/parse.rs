@@ -24,6 +24,7 @@ pub mod cmd {
         let (input, v) = separated_list0(multispace1, alphanumeric1)(input)?;
         let (input, _) = multispace0(input)?;
         let args = v.into_iter().map(|s| Expr::Single(Single::Str(s.to_string()))).collect();
+        // TODO: std::process::Command??!?
         Ok((input, Cmd {cmd: f.to_string(), args: args}))
     }
 }
@@ -170,13 +171,6 @@ fn expr_stmt(input: &str) -> IResult<&str, Stmt> {
     let (input, e) = expr(input)?;
     Ok((input, Stmt::Expr(e)))
 }
-
-/*
-fn cmd_stmt(input: &str) -> IResult<&str, Stmt> {
-    let (input, c) = cmd(input)?;
-    Ok((input, Stmt::Cmd(c)))
-}
-*/
 
 pub fn stmt(input: &str, mode: Mode) -> IResult<&str, Stmt> {
     alt((special, expr_stmt))(input)

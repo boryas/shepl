@@ -6,6 +6,7 @@ pub enum BinOp {
     Div,
 }
 
+// TODO: cut out the middleman?
 #[derive(Debug, PartialEq)]
 pub struct Cmd {
     pub cmd: String,
