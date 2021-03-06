@@ -38,25 +38,6 @@ if expr then expr else expr
 let v = expr
 for v in expr do expr
 
-## New Direction
-two modes:
-cmd: like a shell, with a clunky repl
-expr: like a repl, with a clunky shell
-
-cmd> ls
-foo bar
-cmd> :m
-expr> let x = foo
-42: int
-expr> :m
-cmd> ls $(x)
-foo
-cmd> expr
-expr> x
-foo
-expr> $(ls -l x)
-rw.r..r.. 4096 bb bb foo
-
 ## important Qs
 integer types?!
 strs vs idens
@@ -112,4 +93,24 @@ harsh> x
 
 shell's default stance: everything is a command
 want: REPL where commands are highly favored, but you can just type 3+4 and get 7
+
+## New Direction
+two modes:
+cmd: like a shell, with a clunky repl
+expr: like a repl, with a clunky shell
+
+cmd> ls
+foo bar
+cmd> :m
+expr> let x = foo
+42: int
+expr> :m
+cmd> ls $(x)
+foo
+cmd> expr
+expr> x
+foo
+expr> $(ls -l x)
+rw.r..r.. 4096 bb bb foo
+
 

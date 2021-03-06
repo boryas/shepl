@@ -1,5 +1,5 @@
 ## now
-dual modes cmd/expr
+"communication" between cmd and expr mode
 lifetime cleanup/rethink
 
 ## future
