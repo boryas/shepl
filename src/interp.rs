@@ -124,6 +124,7 @@ fn read() -> Result<String, Err> {
 }
 
 fn toggle_mode(mode: &Mode, new_mode: Option<Mode>) -> Mode {
+    println!("toggle mode: {:?}->{:?}", mode, new_mode);
     match new_mode {
         Some(m) => m,
         None => match mode {
@@ -143,7 +144,9 @@ fn read_eval(env: &mut Env, mode: &mut Mode) -> Result<String, Err> {
             Special::Help => Ok(format!("mode: {:?} cmd:expr::shell:repl", *mode)),
             Special::Quit => Err(Err::Eval),
             Special::Mode(o) => {
+                // TODO DOESN'T ACTUALLY CHANGE JACK SHIT
                 *mode = toggle_mode(mode, o);
+                println!("new mode: {:?}", mode);
                 Ok(format!(""))
             }
         }

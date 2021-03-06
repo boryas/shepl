@@ -176,7 +176,7 @@ fn expr_stmt(input: &str) -> IResult<&str, Stmt> {
 
 pub fn stmt<'a, 'b>(input: &'a str, mode: &'b Mode) -> IResult<&'a str, Stmt> {
     let (input, _) = multispace0(input)?;
-    let s = match mode {
+    let (input, s) = match mode {
         Cmd => alt((special, cmd::cmd))(input),
         Expr => alt((special, expr_stmt))(input)
     }?;
