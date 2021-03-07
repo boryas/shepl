@@ -2,14 +2,15 @@ extern crate nom;
 use nom::{
     branch::alt,
     bytes::complete::tag,
-    character::complete::{alphanumeric0, alphanumeric1, anychar, digit1, multispace0, multispace1, one_of},
+    character::complete::{alphanumeric0, anychar, digit1, multispace0, multispace1, one_of},
     combinator::{map_res, recognize, verify},
-    multi::{many0, separated_list1},
+    multi::{many0},
     sequence::{delimited, tuple},
     AsChar, IResult,
 };
 
-use crate::ast::{BinOp, Cmd, Expr, Mode, Single, Special, Stmt};
+use crate::ast::{BinOp, Expr, Mode, Single, Special, Stmt};
+use crate::Err;
 
 pub mod cmd {
     use nom::{
@@ -17,17 +18,14 @@ pub mod cmd {
         multi::{separated_list0},
         IResult
     };
-    use crate::ast::Stmt;
+    use crate::ast::{Cmd,Stmt};
     pub fn cmd(input: &str) -> IResult<&str, Stmt> {
         let (input, f) = alphanumeric1(input)?;
-        let mut p = std::process::Command::new(f);
         let (input, _) = multispace0(input)?;
         let (input, v) = separated_list0(multispace1, alphanumeric1)(input)?;
         let (input, _) = multispace0(input)?;
-        for arg in v {
-            p.arg(arg);
-        }
-        Ok((input, Stmt::Cmd(p)))
+        let v = v.into_iter().map(|arg| arg.to_string()).collect();
+        Ok((input, Stmt::Cmd(Cmd {cmd: f.to_string(), args: v})))
     }
 }
 
@@ -97,12 +95,15 @@ fn binop(input: &str) -> IResult<&str, Expr> {
 }
 
 fn cmd(input: &str) -> IResult<&str, Expr> {
-    let (input, _t) = tag("$(")(input)?;
-    let (input, f) = alphanumeric1(input)?;
-    let (input, _) = multispace1(input)?;
-    let (input, v) = separated_list1(multispace1, single)(input)?;
-    let (input, _t) = tag(")")(input)?;
-    Ok((input, Expr::Cmd(Cmd {cmd: f.to_string(), args: v})))
+    let (input, _) = tag("$(")(input)?;
+    let (input, c) = crate::parse::cmd::cmd(input)?;
+    let ret = match c {
+        Stmt::Cmd(c) => Expr::Cmd(c),
+        Stmt::Expr(e) => e,
+        Stmt::Special(s) => Expr::Single(Single::Str("".to_string())),
+    };
+    let (input, _) = tag(")")(input)?;
+    Ok((input, ret))
 }
 
 fn cond(input: &str) -> IResult<&str, Expr> {

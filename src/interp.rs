@@ -44,17 +44,7 @@ fn eval_single(env: &mut Env, e: Single) -> Result<Value, Err> {
 }
 
 fn eval_cmd(env: &mut Env, cmd: Cmd) -> Result<Value, Err> {
-    let mut proc = std::process::Command::new(cmd.cmd);
-    for arg in cmd.args {
-        let _ = match eval(env, arg)? {
-            Value::Whole(u) => proc.arg(u.to_string()),
-            Value::Integer(i) => proc.arg(i.to_string()),
-            Value::Str(a) => proc.arg(a),
-        };
-    }
-    let output = proc.output().expect("failed to execute cmd");
-    let s = String::from_utf8(output.stdout).expect("invalid UTF-8 output");
-    Ok(Value::Str(s.to_string()))
+    Ok(Value::Str(run_cmd(env, cmd)?))
 }
 
 fn eval_binop(env: &mut Env, op: BinOp, left: Box<Expr>, right: Box<Expr>) -> Result<Value, Err> {
@@ -110,8 +100,12 @@ fn parse(input: &str, mode: &Mode) -> Result<Stmt, Err> {
     }
 }
 
-fn run_cmd(env: &mut Env, mut cmd: std::process::Command) -> Result<String, Err> {
-    let output = cmd.output().expect("failed to execute cmd");
+fn run_cmd(env: &mut Env, cmd: Cmd) -> Result<String, Err> {
+    let mut proc = std::process::Command::new(cmd.cmd);
+    for arg in cmd.args {
+        proc.arg(arg);
+    }
+    let output = proc.output().expect("failed to execute cmd");
     Ok(String::from_utf8(output.stdout).expect("invalid UTF-8 output"))
 }
 

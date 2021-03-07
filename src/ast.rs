@@ -10,7 +10,7 @@ pub enum BinOp {
 #[derive(Debug, PartialEq)]
 pub struct Cmd {
     pub cmd: String,
-    pub args: Vec<Expr>
+    pub args: Vec<String>
 }
 
 #[derive(Debug, PartialEq)]
@@ -47,6 +47,6 @@ pub enum Expr {
 #[derive(Debug)]
 pub enum Stmt {
     Expr(Expr),
-    Cmd(std::process::Command),
+    Cmd(Cmd),
     Special(Special),
 }
