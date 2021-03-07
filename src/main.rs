@@ -1,4 +1,4 @@
-use harsh::interp::{repl};
+use harsh::interp::repl;
 
 fn main() {
     repl();
@@ -79,7 +79,10 @@ fn parse_cond() {
             assert_eq!(*b1, Expr::UInt64(42));
             assert_eq!(*b2, Expr::UInt64(43));
         }
-        _ => { println!("{:?}", c); assert!(false) },
+        _ => {
+            println!("{:?}", c);
+            assert!(false)
+        }
     }
 
     assert!(expr("if foo").is_err());
@@ -95,6 +98,9 @@ fn parse_assign() {
             assert_eq!(iden, "x".to_string());
             assert_eq!(*expr, Expr::UInt64(42));
         }
-        _ => { println!("{:?}", a); assert!(false) }
+        _ => {
+            println!("{:?}", a);
+            assert!(false)
+        }
     }
 }

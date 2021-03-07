@@ -1,9 +1,9 @@
-use std::io::Write;
 use std::collections::HashMap;
+use std::io::Write;
 
-use crate::Err;
-use crate::ast::{BinOp, Cmd, Expr, Mode, Single, Special, Stmt};
+use crate::ast::{Arg, BinOp, Cmd, Expr, Mode, Single, Special, Stmt};
 use crate::parse::stmt;
+use crate::Err;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Value {
@@ -14,12 +14,14 @@ pub enum Value {
 
 #[derive(Debug, PartialEq)]
 pub struct Env {
-    bindings: HashMap<String, Value>
+    bindings: HashMap<String, Value>,
 }
 
 impl Env {
     pub fn new() -> Env {
-        Env { bindings: HashMap::new() }
+        Env {
+            bindings: HashMap::new(),
+        }
     }
 }
 
@@ -39,7 +41,7 @@ fn eval_single(env: &mut Env, e: Single) -> Result<Value, Err> {
         Single::Integer(i) => Ok(Value::Integer(i)),
         Single::Str(s) => Ok(Value::Str(s)),
         Single::Iden(i) => eval_iden(env, &i),
-        Single::Paren(e) => eval(env, *e)
+        Single::Paren(e) => eval(env, *e),
     }
 }
 
@@ -51,25 +53,23 @@ fn eval_binop(env: &mut Env, op: BinOp, left: Box<Expr>, right: Box<Expr>) -> Re
     let lv = eval(env, *left)?;
     let rv = eval(env, *right)?;
     match (lv, rv) {
-        (Value::Whole(l), Value::Whole(r)) =>
-            match op {
-                BinOp::Add => Ok(Value::Whole(l+r)),
-                BinOp::Sub => Ok(Value::Whole(l-r)),
-                BinOp::Mul => Ok(Value::Whole(l*r)),
-                BinOp::Div => Ok(Value::Whole(l/r)),
-            },
-        _ => Err(Err::Eval)
+        (Value::Whole(l), Value::Whole(r)) => match op {
+            BinOp::Add => Ok(Value::Whole(l + r)),
+            BinOp::Sub => Ok(Value::Whole(l - r)),
+            BinOp::Mul => Ok(Value::Whole(l * r)),
+            BinOp::Div => Ok(Value::Whole(l / r)),
+        },
+        _ => Err(Err::Eval),
     }
 }
 
 fn eval_cond(env: &mut Env, pred: Box<Expr>, br1: Box<Expr>, br2: Box<Expr>) -> Result<Value, Err> {
     let p = eval(env, *pred)?;
-    let truth =
-        match p {
-            Value::Whole(u) => u > 0,
-            Value::Integer(i) => i != 0,
-            Value::Str(s) => !s.is_empty()
-        };
+    let truth = match p {
+        Value::Whole(u) => u > 0,
+        Value::Integer(i) => i != 0,
+        Value::Str(s) => !s.is_empty(),
+    };
     if truth {
         eval(env, *br1)
     } else {
@@ -96,14 +96,27 @@ fn eval(env: &mut Env, expr: Expr) -> Result<Value, Err> {
 fn parse(input: &str, mode: &Mode) -> Result<Stmt, Err> {
     match stmt(input, mode) {
         Ok(("", s)) => Ok(s),
-        _ => Err(Err::Parse)
+        _ => Err(Err::Parse),
     }
 }
 
 fn run_cmd(env: &mut Env, cmd: Cmd) -> Result<String, Err> {
     let mut proc = std::process::Command::new(cmd.cmd);
     for arg in cmd.args {
-        proc.arg(arg);
+        match arg {
+            Arg::Raw(a) => {
+                proc.arg(a);
+            }
+            Arg::Rec(e) => {
+                let a = match eval(env, *e)? {
+                    // TODO: Display trait
+                    Value::Whole(u) => format!("{}", u),
+                    Value::Integer(i) => format!("{}", i),
+                    Value::Str(s) => format!("{}", s),
+                };
+                proc.arg(a);
+            }
+        }
     }
     let output = proc.output().expect("failed to execute cmd");
     Ok(String::from_utf8(output.stdout).expect("invalid UTF-8 output"))
@@ -113,7 +126,7 @@ fn read() -> Result<String, Err> {
     let mut l = String::new();
     match std::io::stdin().read_line(&mut l) {
         Ok(_) => Ok(l),
-        _ => Err(Err::Read)
+        _ => Err(Err::Read),
     }
 }
 
@@ -122,8 +135,8 @@ fn toggle_mode(mode: &Mode, new_mode: Option<Mode>) -> Mode {
         Some(m) => m,
         None => match mode {
             Mode::Cmd => Mode::Expr,
-            Mode::Expr => Mode::Cmd
-        }
+            Mode::Expr => Mode::Cmd,
+        },
     }
 }
 
@@ -135,8 +148,8 @@ fn read_eval(env: &mut Env, mode: &mut Mode) -> Result<String, Err> {
             // TODO: Display trait
             Value::Whole(u) => Ok(format!("{}: u64", u)),
             Value::Integer(i) => Ok(format!("{}: i64", i)),
-            Value::Str(s) => Ok(format!("{}: str", s))
-        }
+            Value::Str(s) => Ok(format!("{}: str", s)),
+        },
         Stmt::Cmd(c) => run_cmd(env, c),
         Stmt::Special(s) => match s {
             Special::Help => Ok(format!("mode: {:?} cmd:expr::shell:repl", *mode)),
@@ -145,10 +158,10 @@ fn read_eval(env: &mut Env, mode: &mut Mode) -> Result<String, Err> {
                 *mode = toggle_mode(mode, o);
                 Ok(format!(""))
             }
-        }
+        },
     }
     /*
-    */
+     */
 }
 
 pub fn repl() {

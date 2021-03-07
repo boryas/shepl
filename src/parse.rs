@@ -4,33 +4,55 @@ use nom::{
     bytes::complete::tag,
     character::complete::{alphanumeric0, anychar, digit1, multispace0, multispace1, one_of},
     combinator::{map_res, recognize, verify},
-    multi::{many0},
+    multi::many0,
     sequence::{delimited, tuple},
     AsChar, IResult,
 };
 
 use crate::ast::{BinOp, Expr, Mode, Single, Special, Stmt};
-use crate::Err;
 
 pub mod cmd {
+    use crate::ast::{Arg, Cmd, Stmt};
     use nom::{
-        character::complete::{multispace0, multispace1, alphanumeric1},
-        multi::{separated_list0},
-        IResult
+        branch::alt,
+        bytes::complete::tag,
+        character::complete::{alphanumeric1, multispace0, multispace1},
+        multi::separated_list0,
+        IResult,
     };
-    use crate::ast::{Cmd,Stmt};
+
+    pub fn cmd_arg(input: &str) -> IResult<&str, Arg> {
+        let (input, a) = alphanumeric1(input)?;
+        Ok((input, Arg::Raw(a.to_string())))
+    }
+
+    pub fn expr_arg(input: &str) -> IResult<&str, Arg> {
+        let (input, _) = tag("$(")(input)?;
+        let (input, e) = crate::parse::expr(input)?;
+        let (input, _) = tag(")")(input)?;
+        Ok((input, Arg::Rec(Box::new(e))))
+    }
+
+    pub fn arg(input: &str) -> IResult<&str, Arg> {
+        alt((cmd_arg, expr_arg))(input)
+    }
+
     pub fn cmd(input: &str) -> IResult<&str, Stmt> {
         let (input, f) = alphanumeric1(input)?;
         let (input, _) = multispace0(input)?;
-        let (input, v) = separated_list0(multispace1, alphanumeric1)(input)?;
+        let (input, v) = separated_list0(multispace1, arg)(input)?;
         let (input, _) = multispace0(input)?;
-        let v = v.into_iter().map(|arg| arg.to_string()).collect();
-        Ok((input, Stmt::Cmd(Cmd {cmd: f.to_string(), args: v})))
+        Ok((
+            input,
+            Stmt::Cmd(Cmd {
+                cmd: f.to_string(),
+                args: v,
+            }),
+        ))
     }
 }
 
-pub mod expr {
-}
+pub mod expr {}
 
 fn whole_num(input: &str) -> IResult<&str, Expr> {
     let (input, u) = map_res(digit1, |ds: &str| u64::from_str_radix(&ds, 10))(input)?;
@@ -97,10 +119,11 @@ fn binop(input: &str) -> IResult<&str, Expr> {
 fn cmd(input: &str) -> IResult<&str, Expr> {
     let (input, _) = tag("$(")(input)?;
     let (input, c) = crate::parse::cmd::cmd(input)?;
+    // TODO should really be "match command or Err"
     let ret = match c {
         Stmt::Cmd(c) => Expr::Cmd(c),
         Stmt::Expr(e) => e,
-        Stmt::Special(s) => Expr::Single(Single::Str("".to_string())),
+        Stmt::Special(_s) => Expr::Single(Single::Str("".to_string())),
     };
     let (input, _) = tag(")")(input)?;
     Ok((input, ret))
@@ -167,7 +190,11 @@ fn special(input: &str) -> IResult<&str, Stmt> {
 }
 
 pub fn expr(input: &str) -> IResult<&str, Expr> {
-    delimited(multispace0, alt((assign, cond, cmd, binop, single)), multispace0)(input)
+    delimited(
+        multispace0,
+        alt((assign, cond, cmd, binop, single)),
+        multispace0,
+    )(input)
 }
 
 fn expr_stmt(input: &str) -> IResult<&str, Stmt> {
@@ -179,7 +206,7 @@ pub fn stmt<'a, 'b>(input: &'a str, mode: &'b Mode) -> IResult<&'a str, Stmt> {
     let (input, _) = multispace0(input)?;
     let (input, ret) = match mode {
         Mode::Cmd => alt((special, cmd::cmd))(input),
-        Mode::Expr => alt((special, expr_stmt))(input)
+        Mode::Expr => alt((special, expr_stmt))(input),
     }?;
     let (input, _) = multispace0(input)?;
     Ok((input, ret))
