@@ -1,8 +1,7 @@
 ## cleanup
-finish modal refactor (expr in module)
 ls -l doesn't parse
 lifetime/ownership
-whitespace parsing
+whitespace parsing (traits)
 
 ## features
 decent error handling
