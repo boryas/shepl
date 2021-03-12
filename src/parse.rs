@@ -1,11 +1,6 @@
 extern crate nom;
 use crate::ast::{Mode, Special, Stmt};
-use nom::{
-        branch::alt,
-        bytes::complete::tag,
-        character::complete::multispace0,
-        IResult,
-};
+use nom::{branch::alt, bytes::complete::tag, character::complete::multispace0, IResult};
 use std::cell::RefCell;
 
 thread_local! {
@@ -13,9 +8,7 @@ thread_local! {
 }
 
 fn get_toggle_depth() -> u32 {
-    MODE_TOGGLE_DEPTH.with(|d| {
-        *d.borrow()
-    })
+    MODE_TOGGLE_DEPTH.with(|d| *d.borrow())
 }
 
 fn inc_toggle_depth() {
@@ -35,12 +28,15 @@ pub mod cmd {
         branch::alt,
         bytes::complete::{tag, take_while1},
         character::complete::{alphanumeric1, multispace1},
-        multi::{many0},
+        multi::many0,
         IResult,
     };
 
     fn arg_char(c: char) -> bool {
-        (c != ' ') && (c != '\t') && (c != '\n') && (c != '\r')
+        (c != ' ')
+            && (c != '\t')
+            && (c != '\n')
+            && (c != '\r')
             && (crate::parse::get_toggle_depth() == 0 || c != ')')
     }
 
@@ -85,8 +81,7 @@ pub mod expr {
         combinator::{map_res, opt, recognize, verify},
         multi::many0,
         sequence::{delimited, tuple},
-        AsChar,
-        IResult,
+        AsChar, IResult,
     };
 
     fn integer(input: &str) -> IResult<&str, Expr> {
@@ -94,7 +89,7 @@ pub mod expr {
         let (input, n) = map_res(digit1, |ds: &str| i128::from_str_radix(&ds, 10))(input)?;
         let i = match neg {
             Some(_) => n * -1,
-            None => n
+            None => n,
         };
         Ok((input, Expr::Single(Single::Integer(i))))
     }

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use std::io::Write;
 use std::fmt;
+use std::io::Write;
 
 use crate::ast::{Arg, BinOp, Cmd, Expr, Mode, Single, Special, Stmt};
 use crate::parse::stmt;
@@ -110,15 +110,11 @@ fn parse(input: &str, mode: &Mode) -> Result<Stmt, Err> {
 fn run_cmd(env: &mut Env, cmd: Cmd) -> Result<String, Err> {
     let mut proc = std::process::Command::new(cmd.cmd);
     for arg in cmd.args {
-        match arg {
-            Arg::Raw(a) => {
-                proc.arg(a);
-            }
-            Arg::Rec(e) => {
-                let a = format!("{}", eval(env, *e)?);
-                proc.arg(a);
-            }
-        }
+        let a = match arg {
+            Arg::Raw(a) => a,
+            Arg::Rec(e) => format!("{}", eval(env, *e)?),
+        };
+        proc.arg(a);
     }
     let output = proc.output().expect("failed to execute cmd");
     Ok(String::from_utf8(output.stdout).expect("invalid UTF-8 output"))
