@@ -8,15 +8,13 @@ use crate::Err;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Value {
-    Whole(u64),
-    Integer(i64),
+    Integer(i128),
     Str(String),
 }
 
 impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Value::Whole(u) => write!(f, "{}", u),
             Value::Integer(i) => write!(f, "{}", i),
             Value::Str(s) => write!(f, "{}", s),
         }
@@ -48,7 +46,6 @@ fn eval_iden(env: &Env, i: &str) -> Result<Value, Err> {
 
 fn eval_single(env: &mut Env, e: Single) -> Result<Value, Err> {
     match e {
-        Single::Whole(u) => Ok(Value::Whole(u)),
         Single::Integer(i) => Ok(Value::Integer(i)),
         Single::Str(s) => Ok(Value::Str(s)),
         Single::Iden(i) => eval_iden(env, &i),
@@ -64,11 +61,11 @@ fn eval_binop(env: &mut Env, op: BinOp, left: Box<Expr>, right: Box<Expr>) -> Re
     let lv = eval(env, *left)?;
     let rv = eval(env, *right)?;
     match (lv, rv) {
-        (Value::Whole(l), Value::Whole(r)) => match op {
-            BinOp::Add => Ok(Value::Whole(l + r)),
-            BinOp::Sub => Ok(Value::Whole(l - r)),
-            BinOp::Mul => Ok(Value::Whole(l * r)),
-            BinOp::Div => Ok(Value::Whole(l / r)),
+        (Value::Integer(l), Value::Integer(r)) => match op {
+            BinOp::Add => Ok(Value::Integer(l + r)),
+            BinOp::Sub => Ok(Value::Integer(l - r)),
+            BinOp::Mul => Ok(Value::Integer(l * r)),
+            BinOp::Div => Ok(Value::Integer(l / r)),
         },
         _ => Err(Err::Eval),
     }
@@ -77,7 +74,6 @@ fn eval_binop(env: &mut Env, op: BinOp, left: Box<Expr>, right: Box<Expr>) -> Re
 fn eval_cond(env: &mut Env, pred: Box<Expr>, br1: Box<Expr>, br2: Box<Expr>) -> Result<Value, Err> {
     let p = eval(env, *pred)?;
     let truth = match p {
-        Value::Whole(u) => u > 0,
         Value::Integer(i) => i != 0,
         Value::Str(s) => !s.is_empty(),
     };
@@ -119,12 +115,7 @@ fn run_cmd(env: &mut Env, cmd: Cmd) -> Result<String, Err> {
                 proc.arg(a);
             }
             Arg::Rec(e) => {
-                let a = match eval(env, *e)? {
-                    // TODO: Display trait
-                    Value::Whole(u) => format!("{}", u),
-                    Value::Integer(i) => format!("{}", i),
-                    Value::Str(s) => format!("{}", s),
-                };
+                let a = format!("{}", eval(env, *e)?);
                 proc.arg(a);
             }
         }

@@ -82,19 +82,22 @@ pub mod expr {
         branch::alt,
         bytes::complete::tag,
         character::complete::{alphanumeric0, anychar, digit1, multispace0, multispace1, one_of},
-        combinator::{map_res, recognize, verify},
+        combinator::{map_res, opt, recognize, verify},
         multi::many0,
         sequence::{delimited, tuple},
         AsChar,
         IResult,
     };
 
-    fn whole_num(input: &str) -> IResult<&str, Expr> {
-        let (input, u) = map_res(digit1, |ds: &str| u64::from_str_radix(&ds, 10))(input)?;
-        Ok((input, Expr::Single(Single::Whole(u))))
+    fn integer(input: &str) -> IResult<&str, Expr> {
+        let (input, neg) = opt(tag("-"))(input)?;
+        let (input, n) = map_res(digit1, |ds: &str| i128::from_str_radix(&ds, 10))(input)?;
+        let i = match neg {
+            Some(_) => n * -1,
+            None => n
+        };
+        Ok((input, Expr::Single(Single::Integer(i))))
     }
-
-    // TODO: integer
 
     fn str(input: &str) -> IResult<&str, Expr> {
         // TODO: decide what characters you want in string literals
@@ -129,7 +132,7 @@ pub mod expr {
     }
 
     fn single(input: &str) -> IResult<&str, Expr> {
-        alt((whole_num, iden, str, paren))(input)
+        alt((integer, iden, str, paren))(input)
     }
 
     fn binop(input: &str) -> IResult<&str, Expr> {

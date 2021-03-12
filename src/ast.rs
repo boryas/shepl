@@ -33,8 +33,7 @@ pub enum Special {
 
 #[derive(Debug, PartialEq)]
 pub enum Single {
-    Whole(u64),
-    Integer(i64),
+    Integer(i128),
     Str(String),
     Iden(String),
     Paren(Box<Expr>),
