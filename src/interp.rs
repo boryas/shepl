@@ -86,8 +86,8 @@ fn eval_cond(env: &mut Env, pred: Box<Expr>, br1: Box<Expr>, br2: Box<Expr>) -> 
 
 fn eval_assign(env: &mut Env, name: &str, expr: Box<Expr>) -> Result<Value, Err> {
     let v = eval(env, *expr)?;
-    env.bindings.insert(name.to_string(), v.clone());
-    Ok(v.clone())
+    env.bindings.insert(name.to_string(), v);
+    eval_iden(env, name)
 }
 
 fn eval(env: &mut Env, expr: Expr) -> Result<Value, Err> {
