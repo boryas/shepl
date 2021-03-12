@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::io::Write;
+use std::fmt;
 
 use crate::ast::{Arg, BinOp, Cmd, Expr, Mode, Single, Special, Stmt};
 use crate::parse::stmt;
@@ -10,6 +11,16 @@ pub enum Value {
     Whole(u64),
     Integer(i64),
     Str(String),
+}
+
+impl fmt::Display for Value {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Value::Whole(u) => write!(f, "{}", u),
+            Value::Integer(i) => write!(f, "{}", i),
+            Value::Str(s) => write!(f, "{}", s),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -144,12 +155,7 @@ fn read_eval(env: &mut Env, mode: &mut Mode) -> Result<String, Err> {
     let line = read()?;
     let stmt = parse(&line, mode)?;
     match stmt {
-        Stmt::Expr(e) => match eval(env, e)? {
-            // TODO: Display trait
-            Value::Whole(u) => Ok(format!("{}: u64", u)),
-            Value::Integer(i) => Ok(format!("{}: i64", i)),
-            Value::Str(s) => Ok(format!("{}: str", s)),
-        },
+        Stmt::Expr(e) => Ok(format!("{}", eval(env, e)?)),
         Stmt::Cmd(c) => run_cmd(env, c),
         Stmt::Special(s) => match s {
             Special::Help => Ok(format!("mode: {:?} cmd:expr::shell:repl", *mode)),

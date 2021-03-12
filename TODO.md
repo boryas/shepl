@@ -1,6 +1,7 @@
 ## cleanup
 lifetime/ownership
 whitespace parsing (traits)
+toggle_depth in parsing ctx struct
 
 ## features
 decent error handling
