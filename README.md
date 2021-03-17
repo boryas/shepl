@@ -4,6 +4,7 @@ A modal shell that tries to be a REPL too.
 
 ## The Problem
 bash:
+```
 $ ls foo
 bar baz
 $ d=foo
@@ -13,9 +14,11 @@ $ ls $d
 bar baz
 $ 3+4
 Command not found
+```
 
 Everyone is used to this, and it sure works. But a REPL is often more powerful
 python:
+```
 >>> d = "foo"
 >>> dirs = subprocess.check_output(["ls", d]).split('\n')
 ['bar', 'baz']
@@ -23,9 +26,10 @@ python:
 ...
 >>> 3 + 4
 7
+```
 
-But obviously, "subprocess.check_output(["ls", d])" doesn't hold a candle to
-"ls $d" in terms of shell-y expressiveness.
+But obviously, 1subprocess.check_output(["ls", d])` doesn't hold a candle to
+`ls $d` in terms of shell-y expressiveness.
 
 Is it possible to thread the needle and design a shell-repl hybrid that gets
 the best of both worlds: A rich typed environment where you can interactively
@@ -43,9 +47,11 @@ cruft of bash: better assignment syntax, etc. Csh, perl, scsh (scheme), rash
 quickly found that I actually had nothing new to bring to the table as I tried
 to implement something like:
 
+```
 $ let dir = "foo"
 $ ls dir
 bar baz
+```
 
 and quickly found that I couldn't make it work. In general, substituting
 variables from the environment and treating arguments as strings felt
@@ -68,6 +74,7 @@ run a command and store it in a variable, jump back to the repl, and hack it up
 with powerful code.
 
 The silly example above, re-visited:
+```
 cmd> ls foo
 bar baz
 cmd> :m
@@ -79,6 +86,7 @@ bar baz
 expr> :m
 cmd> ls $(d)
 bar baz
+```
 
 This feels promising enough to pursue.
 
