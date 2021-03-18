@@ -49,17 +49,13 @@ fn eval_single(env: &mut Env, e: Single) -> Result<Value, Err> {
         Single::Integer(i) => Ok(Value::Integer(i)),
         Single::Str(s) => Ok(Value::Str(s)),
         Single::Iden(i) => eval_iden(env, &i),
-        Single::Paren(e) => eval(env, *e),
+        Single::Paren(e) => eval_expr(env, *e),
     }
 }
 
-fn eval_cmd(env: &mut Env, cmd: Cmd) -> Result<Value, Err> {
-    Ok(Value::Str(run_cmd(env, cmd)?))
-}
-
 fn eval_binop(env: &mut Env, op: BinOp, left: Box<Expr>, right: Box<Expr>) -> Result<Value, Err> {
-    let lv = eval(env, *left)?;
-    let rv = eval(env, *right)?;
+    let lv = eval_expr(env, *left)?;
+    let rv = eval_expr(env, *right)?;
     match (lv, rv) {
         (Value::Integer(l), Value::Integer(r)) => match op {
             BinOp::Add => Ok(Value::Integer(l + r)),
@@ -72,28 +68,28 @@ fn eval_binop(env: &mut Env, op: BinOp, left: Box<Expr>, right: Box<Expr>) -> Re
 }
 
 fn eval_cond(env: &mut Env, pred: Box<Expr>, br1: Box<Expr>, br2: Box<Expr>) -> Result<Value, Err> {
-    let p = eval(env, *pred)?;
+    let p = eval_expr(env, *pred)?;
     let truth = match p {
         Value::Integer(i) => i != 0,
         Value::Str(s) => !s.is_empty(),
     };
     if truth {
-        eval(env, *br1)
+        eval_expr(env, *br1)
     } else {
-        eval(env, *br2)
+        eval_expr(env, *br2)
     }
 }
 
 fn eval_assign(env: &mut Env, name: &str, expr: Box<Expr>) -> Result<Value, Err> {
-    let v = eval(env, *expr)?;
+    let v = eval_expr(env, *expr)?;
     env.bindings.insert(name.to_string(), v);
     eval_iden(env, name)
 }
 
-fn eval(env: &mut Env, expr: Expr) -> Result<Value, Err> {
+fn eval_expr(env: &mut Env, expr: Expr) -> Result<Value, Err> {
     match expr {
         Expr::Single(e) => eval_single(env, e),
-        Expr::Cmd(cmd) => eval_cmd(env, cmd),
+        Expr::Cmd(cmd) => run_cmd(env, cmd),
         Expr::BinOp(op, e1, e2) => eval_binop(env, op, e1, e2),
         Expr::Cond(pred, br1, br2) => eval_cond(env, pred, br1, br2),
         Expr::Assign(n, expr) => eval_assign(env, &n, expr),
@@ -107,17 +103,24 @@ fn parse(input: &str, mode: &Mode) -> Result<Stmt, Err> {
     }
 }
 
-fn run_cmd(env: &mut Env, cmd: Cmd) -> Result<String, Err> {
+fn run_cmd(env: &mut Env, cmd: Cmd) -> Result<Value, Err> {
     let mut proc = std::process::Command::new(cmd.cmd);
     for arg in cmd.args {
         let a = match arg {
             Arg::Raw(a) => a,
-            Arg::Rec(e) => format!("{}", eval(env, *e)?),
+            Arg::Rec(e) => format!("{}", eval_expr(env, *e)?),
         };
         proc.arg(a);
     }
-    let output = proc.output().expect("failed to execute cmd");
-    Ok(String::from_utf8(output.stdout).expect("invalid UTF-8 output"))
+    match proc.output() {
+        Ok(o) => Ok(Value::Str(
+            String::from_utf8(o.stdout).expect("invalid UTF-8 output"),
+        )),
+        Err(e) => {
+          println!("cmd failed: {:?}", e);
+          Err(Err::Run)
+        }
+    }
 }
 
 fn read() -> Result<String, Err> {
@@ -138,23 +141,12 @@ fn toggle_mode(mode: &Mode, new_mode: Option<Mode>) -> Mode {
     }
 }
 
-fn read_eval(env: &mut Env, mode: &mut Mode) -> Result<String, Err> {
-    let line = read()?;
-    let stmt = parse(&line, mode)?;
+fn eval(env: &mut Env, stmt: Stmt) -> Result<Value, Err> {
     match stmt {
-        Stmt::Expr(e) => Ok(format!("{}", eval(env, e)?)),
+        Stmt::Expr(e) => eval_expr(env, e),
         Stmt::Cmd(c) => run_cmd(env, c),
-        Stmt::Special(s) => match s {
-            Special::Help => Ok(format!("mode: {:?} cmd:expr::shell:repl", *mode)),
-            Special::Quit => Err(Err::Eval),
-            Special::Mode(o) => {
-                *mode = toggle_mode(mode, o);
-                Ok(format!(""))
-            }
-        },
+        _ => Err(Err::Eval),
     }
-    /*
-     */
 }
 
 pub fn repl() {
@@ -163,11 +155,23 @@ pub fn repl() {
     loop {
         print!("{:?}> ", mode);
         std::io::stdout().flush().expect("failed to flush prompt");
-        match read_eval(&mut env, &mut mode) {
-            Ok(s) => println!("{}", s),
+        let line = read().expect("input error!");
+        match parse(&line, &mode) {
+            Ok(Stmt::Special(s)) => match s {
+                Special::Help => println!("mode: {:?} cmd:expr::shell:repl", mode),
+                Special::Quit => break,
+                Special::Mode(o) => {
+                    mode = toggle_mode(&mode, o);
+                }
+            },
+            Ok(s) => match eval(&mut env, s) {
+                Ok(v) => println!("{}", v),
+                Err(e) => {
+                    println!("{:?}", e);
+                }
+            },
             Err(e) => {
                 println!("{:?}", e);
-                break;
             }
         }
     }

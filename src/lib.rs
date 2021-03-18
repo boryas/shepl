@@ -8,4 +8,5 @@ pub enum Err {
     Eval,
     Parse,
     Read,
+    Run,
 }

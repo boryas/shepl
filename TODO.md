@@ -1,17 +1,18 @@
 ## cleanup
 whitespace parsing (traits)
-toggle_depth in parsing ctx struct
 
 ## features
+don't blow out on parse fail
+handle ctrl+c/ctrl+d
+"Shell stuff" (pipes, streams, job control, etc...)
 decent error handling
 re-parse output
-loops
+literals for s[] l[] d[]
 functions
+loops
 scopes
 proper str literals (escapes)
-literals for s[] l[] d[]
 set notation (s[x | x in ys, x > 2])
-"Shell stuff" (pipes, streams, job control, etc...)
 config (ps1, aliases, colors, etc.)
 
 ## crazy
