@@ -6,8 +6,6 @@ use crate::ast::{Arg, BinOp, Cmd, Expr, Mode, Single, Special, Stmt};
 use crate::parse::stmt;
 use crate::Err;
 
-use nom::error::convert_error;
-
 #[derive(Clone, Debug, PartialEq)]
 pub enum Value {
     Integer(i128),
@@ -102,7 +100,7 @@ fn parse(input: &str, mode: &Mode) -> Result<Stmt, Err> {
     match stmt(input, mode) {
         Ok(("", s)) => Ok(s),
         Err(nom::Err::Error(e)) | Err(nom::Err::Failure(e)) => {
-            println!("{}", convert_error(input, e));
+            println!("{}, {:?}", input, e);
             Err(Err::Parse)
         }
         _ => Err(Err::Parse),
