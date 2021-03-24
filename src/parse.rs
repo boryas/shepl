@@ -2,8 +2,7 @@ extern crate nom;
 use crate::ast::{Mode, Special, Stmt};
 use nom::{
     branch::alt, bytes::complete::tag, character::complete::multispace0, combinator::all_consuming,
-    error::context,
-    IResult,
+    error::context, IResult,
 };
 use std::cell::RefCell;
 
@@ -28,9 +27,7 @@ fn dec_toggle_depth() {
 }
 
 pub mod err {
-    use nom::{
-        error::{ContextError, ErrorKind, FromExternalError, ParseError},
-    };
+    use nom::error::{ContextError, ErrorKind, FromExternalError, ParseError};
 
     #[derive(Debug)]
     pub enum Err<I> {
@@ -42,7 +39,7 @@ pub mod err {
         fn from_error_kind(input: I, kind: ErrorKind) -> Self {
             Err::Nom(input, kind)
         }
-        fn append(input: I, kind: ErrorKind, mut other: Self) -> Self {
+        fn append(_input: I, _kind: ErrorKind, other: Self) -> Self {
             other
         }
     }
@@ -52,13 +49,13 @@ pub mod err {
     // from_char
 
     impl<I> FromExternalError<I, std::num::ParseIntError> for Err<I> {
-        fn from_external_error(input: I, kind: ErrorKind, e: std::num::ParseIntError) -> Self {
+        fn from_external_error(input: I, _kind: ErrorKind, e: std::num::ParseIntError) -> Self {
             Err::Int(input, format!("{}", e))
         }
     }
 
     impl<I> ContextError<I> for Err<I> {
-        fn add_context(input: I, ctx: &'static str, other: Self) -> Self {
+        fn add_context(_input: I, ctx: &'static str, other: Self) -> Self {
             println!("add_context: {}", ctx);
             other
         }
@@ -66,11 +63,17 @@ pub mod err {
 }
 
 pub mod lex {
+    use crate::parse::err;
     use nom::{
-        character::complete::{multispace0, multispace1},
+        branch::alt,
+        bytes::complete::{tag, take_till},
+        character::complete::{anychar, multispace0},
+        combinator::{map_parser, peek},
+        multi::many0,
         IResult,
     };
 
+    #[derive(Debug, PartialEq)]
     pub enum Op {
         Add,
         Sub,
@@ -89,9 +92,9 @@ pub mod lex {
         BitOr,
     }
 
+    #[derive(Debug, PartialEq)]
     pub enum Tok {
         OpenModeToggle,
-        CloseModeToggle,
         OpenParen,
         CloseParen,
         Op(Op),
@@ -104,14 +107,46 @@ pub mod lex {
         Raw(String),
     }
 
-    // TODO fn tok_char ripping off arg_char (and eventually adding escapes)
-    // or EndOfToken as below
+    fn lex_open_mode(input: &str) -> IResult<&str, Tok, err::Err<&str>> {
+        let (input, _) = tag("$(")(input)?;
+        crate::parse::inc_toggle_depth();
+        Ok((input, Tok::OpenModeToggle))
+    }
+
+    fn lex_open_paren(input: &str) -> IResult<&str, Tok, err::Err<&str>> {
+        let (input, _) = tag("(")(input)?;
+        crate::parse::inc_toggle_depth();
+        Ok((input, Tok::OpenParen))
+    }
+
+    fn lex_close_paren(input: &str) -> IResult<&str, Tok, err::Err<&str>> {
+        let (input, _) = tag(")")(input)?;
+        crate::parse::dec_toggle_depth();
+        Ok((input, Tok::CloseParen))
+    }
+
+    fn lex_raw(input: &str) -> IResult<&str, Tok, err::Err<&str>> {
+        println!("lex_tok: {}", input);
+        let (input, _) = peek(anychar)(input)?;
+        Ok(("", Tok::Raw(input.to_string())))
+    }
+    
+    fn end_of_token(c: char) -> bool {
+        // TODO vec deque of positions, not just a depth counter
+        println!("eotok?: '{}'", c);
+        (c == ' ') || (c == '\t') || (c == '\n') || (c == '\r') || (crate::parse::get_toggle_depth() > 0 && c == ')')
+    }
 
     fn lex_one(input: &str) -> IResult<&str, Tok, err::Err<&str>> {
+        println!("lex_one: {}", input);
         let (input, _) = multispace0(input)?;
-        // TODO: properly handle token end (close paren and dec paren count/whitespace)
-        // probably with nom::bytes::complete::take_until and a combinator for EndOfTok
-        // or take_while and a combinator for "anything but end of token"
+        let (input, tok) = alt((lex_open_mode,
+                                lex_open_paren,
+                                lex_close_paren,
+                                map_parser(take_till(end_of_token), lex_raw)))(input)?;
+        println!("lex_one tok: {:?}", tok);
+        let (input, _) = multispace0(input)?;
+        Ok((input, tok))
     }
 
     pub fn lex(input: &str) -> IResult<&str, Vec<Tok>, err::Err<&str>> {
@@ -119,15 +154,47 @@ pub mod lex {
         // end of lex -> all parens closed
         // Track a stack of open parens instead of a counter for a better error message
     }
+
+    fn check_parens(input: &str, toks: &Vec<Tok>) {
+        println!("{:?}", toks);
+        assert_eq!(input, "");
+        assert_eq!(toks.len(), 6);
+        assert_eq!(toks[0], Tok::OpenParen);
+        assert_eq!(toks[1], Tok::OpenParen);
+        assert_eq!(toks[2], Tok::Raw("foo".to_string()));
+        assert_eq!(toks[3], Tok::Raw("bar".to_string()));
+        assert_eq!(toks[4], Tok::CloseParen);
+        assert_eq!(toks[5], Tok::CloseParen);
+    }
+
+    fn paren_test(input: &str) {
+        match lex(input) {
+            Ok((i, toks)) => check_parens(i, &toks),
+            e => panic!("bad lex {:?}", e)
+        };
+    }
+
+    #[test]
+    fn lex_parens() {
+        paren_test("((foo bar))");
+        paren_test(" ((foo  bar))");
+        paren_test("  ((foo  bar)) ");
+        paren_test("((   foo bar))");
+        paren_test("( (foo bar )  )");
+        paren_test("( ( foo bar   )  ) ");
+        /* TODO: test failures
+         * e.g. mismatched parens
+         */
+    }
 }
 
 pub mod cmd {
-    use crate::parse::err;
     use crate::ast::{Arg, Cmd, Stmt};
+    use crate::parse::err;
     use nom::{
         branch::alt,
         bytes::complete::{tag, take_while1},
-        character::complete::{multispace1},
+        character::complete::multispace1,
         combinator::recognize,
         multi::many0,
         IResult,
@@ -174,8 +241,8 @@ pub mod cmd {
 }
 
 pub mod expr {
-    use crate::parse::err;
     use crate::ast::{BinOp, Expr, Single, Stmt};
+    use crate::parse::err;
     use nom::{
         branch::alt,
         bytes::complete::tag,
@@ -190,7 +257,10 @@ pub mod expr {
     fn integer(input: &str) -> IResult<&str, Expr, err::Err<&str>> {
         println!("{}: int?", input);
         let (input, neg) = opt(tag("-"))(input)?;
-        let (input, n) = context("int", map_res(digit1, |ds: &str| i128::from_str_radix(&ds, 10)))(input)?;
+        let (input, n) = context(
+            "int",
+            map_res(digit1, |ds: &str| i128::from_str_radix(&ds, 10)),
+        )(input)?;
         let i = match neg {
             Some(_) => n * -1,
             None => n,
@@ -216,13 +286,16 @@ pub mod expr {
     }
 
     fn iden(input: &str) -> IResult<&str, Expr, err::Err<&str>> {
-        let (input, id) = context("iden", verify(
-            recognize(tuple((
-                verify(anychar, |c: &char| (*c).is_alpha() || *c == '_'),
-                many0(verify(anychar, iden_char)),
-            ))),
-            valid_iden,
-        ))(input)?;
+        let (input, id) = context(
+            "iden",
+            verify(
+                recognize(tuple((
+                    verify(anychar, |c: &char| (*c).is_alpha() || *c == '_'),
+                    many0(verify(anychar, iden_char)),
+                ))),
+                valid_iden,
+            ),
+        )(input)?;
         Ok((input, Expr::Single(Single::Iden(id.to_string()))))
     }
 
@@ -236,8 +309,10 @@ pub mod expr {
     }
 
     fn binop(input: &str) -> IResult<&str, Expr, err::Err<&str>> {
-        let (input, (e1, _, op, _, e2)) =
-            context("binop", tuple((single, multispace0, one_of("+-*/"), multispace0, single)))(input)?;
+        let (input, (e1, _, op, _, e2)) = context(
+            "binop",
+            tuple((single, multispace0, one_of("+-*/"), multispace0, single)),
+        )(input)?;
         Ok((
             input,
             Expr::BinOp(
@@ -295,11 +370,20 @@ pub mod expr {
     }
 
     pub fn expr(input: &str) -> IResult<&str, Expr, err::Err<&str>> {
-        context("expr", delimited(
-            multispace0,
-            alt((context("assign", assign), context("cond", cond), cmd, binop, single)),
-            multispace0,
-        ))(input)
+        context(
+            "expr",
+            delimited(
+                multispace0,
+                alt((
+                    context("assign", assign),
+                    context("cond", cond),
+                    cmd,
+                    binop,
+                    single,
+                )),
+                multispace0,
+            ),
+        )(input)
     }
 }
 
