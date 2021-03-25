@@ -1,5 +1,4 @@
 use replenish::interp::repl;
-use replenish::ast::Expr;
 
 fn main() {
     repl();

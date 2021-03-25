@@ -160,9 +160,9 @@ pub fn repl() {
         print!("{:?}> ", mode);
         std::io::stdout().flush().expect("failed to flush prompt");
         let line = match read() {
-          Ok((0, _)) => break, // eof, clever that it knows I don't use `line`..
-          Ok((_, l)) => l,
-          _ => panic!("input error!"),
+            Ok((0, _)) => break, // eof, clever that it knows I don't use `line`..
+            Ok((_, l)) => l,
+            _ => panic!("input error!"),
         };
         match parse(&line, &mode) {
             Ok(Stmt::Special(s)) => match s {
