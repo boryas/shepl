@@ -67,7 +67,7 @@ pub mod lex {
     use nom::{
         branch::alt,
         bytes::complete::{tag, take_till},
-        character::complete::{alphanumeric0, anychar, digit1, multispace0},
+        character::complete::{alphanumeric0, anychar, digit1, multispace0, satisfy},
         combinator::{map_parser, map_res, not, peek, recognize, verify},
         multi::many0,
         sequence::{delimited, tuple},
@@ -217,7 +217,8 @@ pub mod lex {
 
     fn op(input: &str) -> IResult<&str, Tok, err::Err<&str>> {
         let (input, o) = alt((
-            add, sub, mul, div, neq, op_not, eq, gte, gt, lte, lt, and, or, xor, bitand, bitor, assign
+            add, sub, mul, div, neq, op_not, eq, gte, gt, lte, lt, and, or, xor, bitand, bitor,
+            assign,
         ))(input)?;
         Ok((input, Tok::Op(o)))
     }
@@ -238,24 +239,18 @@ pub mod lex {
     }
 
     fn keyword(input: &str) -> IResult<&str, Tok, err::Err<&str>> {
-        alt((
-            lex_if,
-            lex_then,
-            lex_else,
-        ))(input)
+        let (input, t) = alt((lex_if, lex_then, lex_else))(input)?;
+        // TODO: it is conceivable to not need whitespace after a keyword..
+        let (input, _) = peek(satisfy(end_of_token))(input)?;
+        Ok((input, t))
     }
 
     fn sep(input: &str) -> IResult<&str, Tok, err::Err<&str>> {
-        alt((
-                open_mode,
-                open_paren,
-                close_paren,
-        ))(input)
+        alt((open_mode, open_paren, close_paren))(input)
     }
 
     fn int_lit(input: &str) -> IResult<&str, Tok, err::Err<&str>> {
-        let (input, n) =
-            map_res(digit1, |ds: &str| i128::from_str_radix(&ds, 10))(input)?;
+        let (input, n) = map_res(digit1, |ds: &str| i128::from_str_radix(&ds, 10))(input)?;
         Ok((input, Tok::IntLit(n)))
     }
 
@@ -277,22 +272,20 @@ pub mod lex {
     fn valid_iden(s: &str) -> bool {
         match not(keyword)(s) {
             Ok(_) => true,
-            _ => false
+            _ => false,
         }
     }
 
     fn iden(input: &str) -> IResult<&str, Tok, err::Err<&str>> {
-        let (input, id) =
-            verify(
-                recognize(tuple((
-                    verify(anychar, |c: &char| (*c).is_alpha() || *c == '_'),
-                    many0(verify(anychar, iden_char)),
-                ))),
-                valid_iden,
-            )(input)?;
+        let (input, id) = verify(
+            recognize(tuple((
+                verify(anychar, |c: &char| (*c).is_alpha() || *c == '_'),
+                many0(verify(anychar, iden_char)),
+            ))),
+            valid_iden,
+        )(input)?;
         Ok((input, Tok::Iden(id.to_string())))
     }
-
 
     fn raw(input: &str) -> IResult<&str, Tok, err::Err<&str>> {
         println!("tok: {}", input);
@@ -326,7 +319,14 @@ pub mod lex {
     fn lex_one(input: &str) -> IResult<&str, Tok, err::Err<&str>> {
         println!("one: {}", input);
         let (input, _) = multispace0(input)?;
-        let (input, tok) = alt((keyword, sep, op, iden, lit, map_parser(take_till(end_of_token), raw)))(input)?;
+        let (input, tok) = alt((
+            keyword,
+            sep,
+            op,
+            iden,
+            lit,
+            map_parser(take_till(end_of_token), raw),
+        ))(input)?;
         println!("one tok: {:?}", tok);
         let (input, _) = multispace0(input)?;
         Ok((input, tok))
@@ -353,7 +353,7 @@ pub mod lex {
                 Ok((i, actual)) => {
                     assert_eq!(i, "");
                     assert_eq!(expected, actual)
-                },
+                }
                 e => panic!("bad lex {:?}", e),
             }
         }
@@ -361,9 +361,7 @@ pub mod lex {
 
     #[test]
     fn test_if_then_else() {
-        let inputs = vec![
-            "if pred then b1 else b2"
-        ];
+        let inputs = vec!["if pred then b1 else b2"];
         let toks = vec![
             Tok::If,
             Tok::Iden("pred".to_string()),
@@ -373,6 +371,24 @@ pub mod lex {
             Tok::Iden("b2".to_string()),
         ];
         do_lex_test(inputs, toks);
+    }
+
+    #[test]
+    fn test_keyword_vs_iden() {
+        let i1 = vec!["if f"];
+        let toks1 = vec![Tok::If, Tok::Iden("f".to_string())];
+        do_lex_test(i1, toks1);
+        let i2 = vec!["iff"];
+        let toks2 = vec![Tok::Iden("iff".to_string())];
+        do_lex_test(i2, toks2);
+        let i3 = vec!["if(f)"];
+        let toks3 = vec![
+            Tok::If,
+            Tok::OpenParen,
+            Tok::Iden("f".to_string()),
+            Tok::CloseParen,
+        ];
+        do_lex_test(i3, toks3);
     }
 
     #[test]
@@ -388,11 +404,7 @@ pub mod lex {
 
     #[cfg(test)]
     fn do_binop_test(op_str: &str, op: Op) {
-        let expected = vec![
-            Tok::IntLit(42),
-            Tok::Op(op),
-            Tok::IntLit(42),
-        ];
+        let expected = vec![Tok::IntLit(42), Tok::Op(op), Tok::IntLit(42)];
         let inputs = vec![
             format!("42 {} 42", op_str),
             format!("42  {}  42", op_str),
@@ -406,7 +418,7 @@ pub mod lex {
                 Ok((i, actual)) => {
                     assert_eq!(i, "");
                     assert_eq!(expected, actual)
-                },
+                }
                 e => panic!("bad lex {:?}", e),
             }
         }
@@ -455,17 +467,10 @@ pub mod lex {
 
     #[test]
     fn test_mode_toggle() {
-        let inputs = vec![
-            "$()",
-            "$( )",
-        ];
-        let toks = vec![
-            Tok::OpenModeToggle,
-            Tok::CloseParen,
-        ];
+        let inputs = vec!["$()", "$( )"];
+        let toks = vec![Tok::OpenModeToggle, Tok::CloseParen];
         do_lex_test(inputs, toks);
     }
-
 }
 
 pub mod cmd {
