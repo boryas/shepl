@@ -259,7 +259,6 @@ fn lex_else(input: &str) -> IResult<&str, Tok, err::Err<&str>> {
 
 fn keyword(input: &str) -> IResult<&str, Tok, err::Err<&str>> {
     let (input, t) = alt((lex_if, lex_then, lex_else))(input)?;
-    // TODO: it is conceivable to not need whitespace after a keyword..
     let (input, _) = peek(satisfy(end_of_token))(input)?;
     Ok((input, t))
 }
@@ -358,9 +357,9 @@ pub mod expr {
         let (input, w_str1) = multispace0(input)?;
         update_pos(w_str1);
 
-        let pos = ctx_pos();
-        let (input, (t_str, t)) = consumed(alt((keyword, sep, op, iden, lit)))(input)?;
-        update_pos(t_str);
+        let tok_pos = ctx_pos();
+        let (input, (tok_str, tok)) = consumed(alt((keyword, sep, op, iden, lit)))(input)?;
+        update_pos(tok_str);
 
         let (input, w_str2) = multispace0(input)?;
         update_pos(w_str2);
@@ -368,9 +367,9 @@ pub mod expr {
         Ok((
             input,
             Lexeme {
-                tok: t,
-                pos: pos,
-                len: t_str.len(),
+                tok: tok,
+                pos: tok_pos,
+                len: tok_str.len(),
             },
         ))
     }
