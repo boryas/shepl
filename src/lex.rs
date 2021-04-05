@@ -104,7 +104,7 @@ pub fn ctx_reset() {
     })
 }
 
-pub fn ctx_pos_forward(off: usize) {
+fn ctx_pos_forward(off: usize) {
     LEX_CTX.with(|ctx| {
         {
             let col: &mut usize = &mut (*ctx).borrow_mut().pos.col;
@@ -113,7 +113,7 @@ pub fn ctx_pos_forward(off: usize) {
     })
 }
 
-pub fn ctx_pos_new_line() {
+fn ctx_pos_new_line() {
     LEX_CTX.with(|ctx| {
         {
             let ln: &mut usize = &mut (*ctx).borrow_mut().pos.ln;
@@ -124,6 +124,20 @@ pub fn ctx_pos_new_line() {
             *col = 0;
         }
     })
+}
+
+fn ctx_pos_update(consumed: &str) {
+    let mut lns = consumed.lines();
+    match lns.next() {
+        Some(ln) => {
+            ctx_pos_forward(ln.len())
+        },
+        None => (),
+    }
+    for ln in lns {
+        ctx_pos_new_line();
+        ctx_pos_forward(ln.len());
+    }
 }
 
 pub fn ctx_pos() -> LexPos {
@@ -307,7 +321,6 @@ fn iden(input: &str) -> IResult<&str, Tok, err::Err<&str>> {
 
 // TODO check a map or a pattern match...
 fn end_of_token(c: char) -> bool {
-    // TODO vec deque of positions, not just a depth counter
     (c == ' ')
         || (c == '\t')
         || (c == '\n')
@@ -329,35 +342,21 @@ fn end_of_token(c: char) -> bool {
         || (c == '>')
 }
 
-pub mod expr {
+pub mod repl {
     use crate::lex::{ctx_pos, ctx_pos_forward, ctx_pos_new_line, iden, keyword, lit, op, sep, Lexeme};
     use crate::parse::err;
     use nom::{branch::alt, character::complete::multispace0, combinator::consumed, IResult};
 
-    fn update_pos(consumed: &str) {
-        let mut lns = consumed.lines();
-        match lns.next() {
-            Some(ln) => {
-                ctx_pos_forward(ln.len())
-            },
-            None => (),
-        }
-        for ln in lns {
-            ctx_pos_new_line();
-            ctx_pos_forward(ln.len());
-        }
-    }
-
     pub fn lex_one(input: &str) -> IResult<&str, Lexeme, err::Err<&str>> {
         let (input, w_str1) = multispace0(input)?;
-        update_pos(w_str1);
+        ctx_pos_update(w_str1);
 
         let tok_pos = ctx_pos();
         let (input, (tok_str, tok)) = consumed(alt((keyword, sep, op, iden, lit)))(input)?;
-        update_pos(tok_str);
+        ctx_pos_update(tok_str);
 
         let (input, w_str2) = multispace0(input)?;
-        update_pos(w_str2);
+        ctx_pos_update(w_str2);
 
         Ok((
             input,
@@ -370,6 +369,11 @@ pub mod expr {
     }
 }
 
+pub mod shell {
+    pub fn lex_one(input: &str) -> IResult<&str, Lexeme, err::Err<&str>> {
+    }
+}
+
 // TODO:
 // expr vs cmd
 pub fn lex(input: &str) -> IResult<&str, Vec<Lexeme>, err::Err<&str>> {
@@ -377,7 +381,7 @@ pub fn lex(input: &str) -> IResult<&str, Vec<Lexeme>, err::Err<&str>> {
     let mut lxs: Vec<Lexeme> = Vec::new();
     let mut inp = input;
     loop {
-        let (i_tmp, (lx_str, lx)) = consumed(crate::lex::expr::lex_one)(inp)?;
+        let (i_tmp, (lx_str, lx)) = consumed(crate::lex::repl::lex_one)(inp)?;
         inp = i_tmp;
         if lx_str == "" {
             panic!("did not consuuuume");
