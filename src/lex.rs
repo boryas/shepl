@@ -1,9 +1,9 @@
 use crate::parse::err;
 use nom::{
     branch::alt,
-    bytes::complete::{tag, take_till, take_until},
-    character::complete::{anychar, digit1, multispace0, satisfy},
-    combinator::{consumed, map_parser, map_res, not, peek, recognize, verify},
+    bytes::complete::{tag, take_until},
+    character::complete::{anychar, digit1, satisfy},
+    combinator::{consumed, map_res, not, peek, recognize, verify},
     multi::many0,
     sequence::{delimited, tuple},
     AsChar, IResult,
@@ -303,11 +303,6 @@ fn iden(input: &str) -> IResult<&str, Tok, err::Err<&str>> {
         valid_iden,
     )(input)?;
     Ok((input, Tok::Iden(id.to_string())))
-}
-
-fn raw(input: &str) -> IResult<&str, Tok, err::Err<&str>> {
-    let (input, _) = peek(anychar)(input)?;
-    Ok(("", Tok::Raw(input.to_string())))
 }
 
 // TODO check a map or a pattern match...
