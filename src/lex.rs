@@ -1,5 +1,4 @@
-use crate::parse::err;
-use crate::ast::Mode;
+use crate::{err, Mode};
 use nom::{
     branch::alt,
     bytes::complete::{tag, take_until},
@@ -337,7 +336,7 @@ fn end_of_token(c: char) -> bool {
 
 pub mod repl {
     use crate::lex::{ctx_pos, ctx_pos_update, iden, keyword, lit, op, sep, Lexeme};
-    use crate::parse::err;
+    use crate::err;
     use nom::{
         branch::alt,
         character::complete::multispace0,
@@ -369,7 +368,7 @@ pub mod repl {
 
 pub mod shell {
     use crate::lex::{ctx_pos, ctx_pos_update, Lexeme, Tok, sep};
-    use crate::parse::err;
+    use crate::err;
     use nom::{
         branch::alt,
         bytes::complete::take_while1,
@@ -413,7 +412,7 @@ pub mod shell {
     }
 }
 
-pub fn lex<'a>(input: &'a str, mode: &'a mut Mode) -> IResult<&'a str, Vec<Lexeme>, err::Err<&'a str>> {
+pub fn lex<'a, 'b>(input: &'a str, mode: &'b mut Mode) -> IResult<&'a str, Vec<Lexeme>, err::Err<&'a str>> {
     ctx_reset();
     let mut lxs: Vec<Lexeme> = Vec::new();
     let mut inp = input;

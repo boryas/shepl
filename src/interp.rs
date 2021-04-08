@@ -2,9 +2,9 @@ use std::collections::HashMap;
 use std::fmt;
 use std::io::Write;
 
-use crate::ast::{Arg, BinOp, Cmd, Expr, Mode, Single, Special, Stmt};
+use crate::ast::{Arg, BinOp, Cmd, Input, Expr, Single, Special, Stmt};
 use crate::parse::stmt;
-use crate::Err;
+use crate::{err, Err, Mode};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Value {
@@ -153,7 +153,11 @@ fn eval(env: &mut Env, stmt: Stmt) -> Result<Value, Err> {
     }
 }
 
-pub fn repl() {
+fn handle_line<'a, 'b>(input: &'a str, mode: &'b Mode) -> Result<Input, err::Err<&'a str>> {
+    Err(err::Err::Unimp)
+}
+
+pub fn replnsh() {
     let mut env = Env::new();
     let mut mode = Mode::Shell;
     loop {

@@ -1,3 +1,5 @@
+use crate::Mode;
+
 #[derive(Debug, PartialEq)]
 pub enum BinOp {
     Add,
@@ -16,12 +18,6 @@ pub enum Arg {
 pub struct Cmd {
     pub cmd: String,
     pub args: Vec<Arg>,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum Mode {
-    Repl,
-    Shell,
 }
 
 #[derive(Debug, PartialEq)]
@@ -50,6 +46,13 @@ pub enum Expr {
 
 #[derive(Debug)]
 pub enum Stmt {
+    Expr(Expr),
+    Cmd(Cmd),
+    Special(Special),
+}
+
+#[derive(Debug)]
+pub enum Input {
     Expr(Expr),
     Cmd(Cmd),
     Special(Special),

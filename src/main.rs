@@ -1,5 +1,5 @@
-use replenish::interp::repl;
+use replenish::interp::replnsh;
 
 fn main() {
-    repl();
+    replnsh();
 }

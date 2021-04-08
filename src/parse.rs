@@ -1,5 +1,6 @@
 extern crate nom;
-use crate::ast::{Mode, Special, Stmt};
+use crate::{err, Mode};
+use crate::ast::{Special, Stmt};
 use nom::{
     branch::alt, bytes::complete::tag, character::complete::multispace0, combinator::all_consuming,
     error::context, IResult,
@@ -26,45 +27,9 @@ fn dec_toggle_depth() {
     })
 }
 
-pub mod err {
-    use nom::error::{ContextError, ErrorKind, FromExternalError, ParseError};
-
-    #[derive(Debug)]
-    pub enum Err<I> {
-        Unimp,
-        Int(I, String),
-        Nom(I, ErrorKind),
-    }
-
-    impl<I> ParseError<I> for Err<I> {
-        fn from_error_kind(input: I, kind: ErrorKind) -> Self {
-            Err::Nom(input, kind)
-        }
-        fn append(_input: I, _kind: ErrorKind, other: Self) -> Self {
-            other
-        }
-        // TODO
-        // or
-        // from_char
-    }
-
-    impl<I> FromExternalError<I, std::num::ParseIntError> for Err<I> {
-        fn from_external_error(input: I, _kind: ErrorKind, e: std::num::ParseIntError) -> Self {
-            Err::Int(input, format!("{}", e))
-        }
-    }
-
-    impl<I> ContextError<I> for Err<I> {
-        fn add_context(_input: I, ctx: &'static str, other: Self) -> Self {
-            println!("add_context: {}", ctx);
-            other
-        }
-    }
-}
-
 pub mod cmd {
     use crate::ast::{Arg, Cmd, Stmt};
-    use crate::parse::err;
+    use crate::err;
     use nom::{
         branch::alt,
         bytes::complete::{tag, take_while1},
@@ -116,7 +81,7 @@ pub mod cmd {
 
 pub mod expr {
     use crate::ast::{BinOp, Expr, Single, Stmt};
-    use crate::parse::err;
+    use crate::err;
     use nom::{
         branch::alt,
         bytes::complete::tag,

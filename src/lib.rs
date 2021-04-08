@@ -1,4 +1,5 @@
 pub mod ast;
+pub mod err;
 pub mod interp;
 pub mod lex;
 pub mod parse;
@@ -10,4 +11,10 @@ pub enum Err {
     Parse,
     Read,
     Run,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum Mode {
+    Repl,
+    Shell,
 }
