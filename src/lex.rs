@@ -81,22 +81,16 @@ thread_local! {
     static LEX_CTX: RefCell<LexCtx> = RefCell::new(LexCtx::new());
 }
 
-fn push_paren(tok: Tok) {
+fn ctx_push_paren(lx: &Lexeme) {
     LEX_CTX.with(|ctx| {
-        let lx = Lexeme {
-            tok: tok,
-            pos: (*ctx).borrow().pos,
-            len: 2,
-        };
-        (*ctx).borrow_mut().parens.push_back(lx);
+        (*ctx).borrow_mut().parens.push_back(lx.clone());
     })
 }
 
-fn pop_paren() {
+fn ctx_pop_paren() -> Option<Lexeme> {
     LEX_CTX.with(|ctx| {
         // TODO: error if no paren left
-        // TODO: communicate what you popped (open paren vs open mode toggle)
-        (*ctx).borrow_mut().parens.pop_back();
+        (*ctx).borrow_mut().parens.pop_back().clone()
     })
 }
 
@@ -150,19 +144,16 @@ pub fn ctx_pos() -> LexPos {
 
 fn open_mode(input: &str) -> IResult<&str, Tok, err::Err<&str>> {
     let (input, _) = tag("$(")(input)?;
-    push_paren(Tok::OpenModeToggle);
     Ok((input, Tok::OpenModeToggle))
 }
 
 fn open_paren(input: &str) -> IResult<&str, Tok, err::Err<&str>> {
     let (input, _) = tag("(")(input)?;
-    push_paren(Tok::OpenParen);
     Ok((input, Tok::OpenParen))
 }
 
 fn close_paren(input: &str) -> IResult<&str, Tok, err::Err<&str>> {
     let (input, _) = tag(")")(input)?;
-    pop_paren();
     Ok((input, Tok::CloseParen))
 }
 
@@ -424,14 +415,12 @@ pub mod shell {
 
 // TODO:
 // shell vs repl
-pub fn lex<'a, 'b>(input: &'a str, m: &'b Mode) -> IResult<&'a str, Vec<Lexeme>, err::Err<&'a str>> {
+pub fn lex<'a>(input: &'a str, mode: &'a mut Mode) -> IResult<&'a str, Vec<Lexeme>, err::Err<&'a str>> {
     ctx_reset();
     let mut lxs: Vec<Lexeme> = Vec::new();
     let mut inp = input;
-    // TODO: mut again when handling modes..
-    let lex_mode = m;
     loop {
-        let lex_one_fn = match lex_mode {
+        let lex_one_fn = match mode {
             Mode::Cmd => crate::lex::shell::lex_one,
             Mode::Expr => crate::lex::repl::lex_one,
         };
@@ -440,10 +429,34 @@ pub fn lex<'a, 'b>(input: &'a str, m: &'b Mode) -> IResult<&'a str, Vec<Lexeme>,
         if lx_str == "" {
             panic!("did not consuuuume");
         }
+        match lx.tok {
+            Tok::OpenModeToggle => {
+                *mode = match mode {
+                    Mode::Cmd => Mode::Expr,
+                    Mode::Expr => Mode::Cmd,
+                };
+                println!("open mode toggle, switch mode to {:?}", *mode);
+                ctx_push_paren(&lx);
+            }
+            Tok::OpenParen => ctx_push_paren(&lx),
+            Tok::CloseParen => {
+                let open = ctx_pop_paren();
+                match open {
+                    Some(open_lx) => {
+                        if open_lx.tok == Tok::OpenModeToggle {
+                            *mode = match mode {
+                                Mode::Cmd => Mode::Expr,
+                                Mode::Expr => Mode::Cmd,
+                            };
+                            println!("close mode toggle, switch mode to {:?}", *mode);
+                        }
+                    }
+                    _ => ()
+                }
+            }
+            _ => ()
+        }
         lxs.push(lx);
-        // TODO: refactor paren logic to push/pop the Lexeme
-        // and to reasonably handle mismatches
-        // (maybe even allowing it as non-terminating)
         if inp.len() == 0 {
             break;
         }
@@ -454,9 +467,9 @@ pub fn lex<'a, 'b>(input: &'a str, m: &'b Mode) -> IResult<&'a str, Vec<Lexeme>,
 }
 
 #[cfg(test)]
-fn do_lex_test(inputs: Vec<&str>, expected: Vec<Tok>, mode: Mode) {
+fn do_lex_test(inputs: Vec<&str>, expected: Vec<Tok>, mut mode: Mode) {
     for input in inputs.into_iter() {
-        match lex(input, &mode) {
+        match lex(input, &mut mode) {
             Ok((i, actual)) => {
                 assert_eq!(i, "");
                 let mut toks: Vec<Tok> = Vec::new();
@@ -541,9 +554,9 @@ fn do_binop_test(op_str: &str, op: Op) {
         format!("42 {}42", op_str),
     ];
     // Can't use do_repl_lex_test because of String vs &str
-    let m = Mode::Expr;
+    let mut mode = Mode::Expr;
     for input in inputs.into_iter() {
-        match lex(&input, &m) {
+        match lex(&input, &mut mode) {
             Ok((i, actual)) => {
                 assert_eq!(i, "");
                 let mut toks: Vec<Tok> = Vec::new();
@@ -652,6 +665,63 @@ fn test_simple_shell_cmd() {
         Tok::Word("ls".to_string()),
         Tok::Word("-l".to_string()),
         Tok::Word("/foo/bar".to_string()),
+    ];
+    do_shell_lex_test(inputs, toks);
+}
+
+#[test]
+fn test_repl_in_shell() {
+    let inputs = vec!["ls $(\"foo\")"];
+    let toks = vec![
+        Tok::Word("ls".to_string()),
+        Tok::OpenModeToggle,
+        Tok::StrLit("foo".to_string()),
+        Tok::CloseParen,
+    ];
+    do_shell_lex_test(inputs, toks);
+}
+
+#[test]
+fn test_shell_in_repl() {
+    let inputs = vec!["fs = $(ls)"];
+    let toks = vec![
+        Tok::Iden("fs".to_string()),
+        Tok::Op(Op::Assign),
+        Tok::OpenModeToggle,
+        Tok::Word("ls".to_string()),
+        Tok::CloseParen,
+    ];
+    do_repl_lex_test(inputs, toks);
+}
+
+#[test]
+fn test_repl_in_shell_in_repl() {
+    let inputs = vec!["fs = $(ls $(d))"];
+    let toks = vec![
+        Tok::Iden("fs".to_string()),
+        Tok::Op(Op::Assign),
+        Tok::OpenModeToggle,
+        Tok::Word("ls".to_string()),
+        Tok::OpenModeToggle,
+        Tok::Iden("d".to_string()),
+        Tok::CloseParen,
+        Tok::CloseParen,
+    ];
+    do_repl_lex_test(inputs, toks);
+}
+
+#[test]
+fn test_shell_in_repl_in_shell() {
+    let inputs = vec!["echo $(some_fn $(ls dir))"];
+    let toks = vec![
+        Tok::Word("echo".to_string()),
+        Tok::OpenModeToggle,
+        Tok::Iden("some_fn".to_string()),
+        Tok::OpenModeToggle,
+        Tok::Word("ls".to_string()),
+        Tok::Word("dir".to_string()),
+        Tok::CloseParen,
+        Tok::CloseParen,
     ];
     do_shell_lex_test(inputs, toks);
 }
