@@ -413,8 +413,6 @@ pub mod shell {
     }
 }
 
-// TODO:
-// shell vs repl
 pub fn lex<'a>(input: &'a str, mode: &'a mut Mode) -> IResult<&'a str, Vec<Lexeme>, err::Err<&'a str>> {
     ctx_reset();
     let mut lxs: Vec<Lexeme> = Vec::new();
