@@ -62,6 +62,24 @@ pub struct Lexeme {
     len: usize,
 }
 
+#[derive(Debug)]
+pub struct Lexemes {
+    lxs: Vec<Lexeme>,
+}
+
+impl Lexemes {
+    pub fn new(lxs: Vec<Lexeme>) -> Self {
+        Lexemes { lxs: lxs }
+    }
+}
+
+/*
+impl InputIter for Lexemes {
+    type Item = Lexeme;
+    // good god
+}
+*/
+
 struct LexCtx {
     pos: LexPos,
     parens: VecDeque<Lexeme>,

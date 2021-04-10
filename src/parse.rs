@@ -237,7 +237,7 @@ pub fn stmt<'a, 'b>(input: &'a str, mode: &'b Mode) -> IResult<&'a str, Stmt, er
     Ok((input, ret))
 }
 
-pub fn parse<'a, 'b>(input: &'a str, mode: &'b Mode) -> IResult<&'a str, Stmt, err::Err<&'a str>> {
+pub fn parse<'a, 'b>(_input: &'a str, _mode: &'b Mode) -> IResult<&'a str, Stmt, err::Err<&'a str>> {
     // TODO wat
     Err(nom::Err::Error(err::Err::Unimp))
 }
