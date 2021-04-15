@@ -249,6 +249,14 @@ pub fn parse<'a, 'b>(
     Err(nom::Err::Error(err::Err::Unimp))
 }
 
+fn tok_tag<'a>(input: Lexemes<'a>, tok: Tok) -> IResult<Lexemes<'a>, Tok, err::Err<Lexemes<'a>>>{
+    let input = input.take(1);
+    if input.lxs[0].tok == tok {
+        tok
+    }
+    Err(nom::Err::Error(err::Err::Nom(input, nom:Err::TagError)))
+}
+
 #[test]
 fn dummy_parse() {
     let mut mode = Mode::Shell;
