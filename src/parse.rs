@@ -125,7 +125,7 @@ pub mod expr {
     use crate::{
         ast::{BinOp, Expr, Single, Stmt},
         err,
-        lex::{Lexemes, Tok},
+        lex::{Lexemes, Op, Tok, Toks},
     };
     use nom::{
         branch::alt,
@@ -285,13 +285,33 @@ pub mod expr {
         }
     }
 
+    fn iden2(input: Lexemes) -> IResult<Lexemes, Single, err::Err<Lexemes>> {
+        let (input, lx) = take(1usize)(input)?;
+        match &lx.lxs[0].tok {
+            Tok::Iden(s) => Ok((input, Single::Iden((*s).to_string()))),
+            _ => Err(nom::Err::Error(err::Err::NotIden(lx))),
+        }
+    }
+
+    fn assign2(input: Lexemes) -> IResult<Lexemes, Expr, err::Err<Lexemes>> {
+        let (input, iden) = iden2(input)?;
+        let iden_str = match iden {
+            Single::Iden(s) => s,
+            _ => "".to_string(), // TODO unreachable..
+        };
+        let (input, _) = tag(Toks::new(&[Tok::Op(Op::Assign)]))(input)?;
+        let (input, e) = expr2(input)?;
+        // TODO: make Assign nest an Iden?
+        Ok((input, Expr::Assign(iden_str, Box::new(e))))
+    }
+
     fn single2(input: Lexemes) -> IResult<Lexemes, Expr, err::Err<Lexemes>> {
-        let (input, s) = alt((integer2, str2))(input)?;
+        let (input, s) = alt((integer2, str2, iden2))(input)?;
         Ok((input, Expr::Single(s)))
     }
 
     pub fn expr2(input: Lexemes) -> IResult<Lexemes, Expr, err::Err<Lexemes>> {
-        single2(input)
+        alt((assign2, single2))(input)
     }
 }
 

@@ -38,7 +38,6 @@ pub enum Tok {
     OpenParen,
     CloseParen,
     Op(Op),
-    Let,
     If,
     Then,
     Else,
