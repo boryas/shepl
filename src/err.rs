@@ -4,6 +4,8 @@ use nom::error::{ContextError, ErrorKind, FromExternalError, ParseError};
 pub enum Err<I> {
     Unimp,
     NotWord(I),
+    NotInt(I),
+    NotStr(I),
     Int(I, String),
     Nom(I, ErrorKind),
 }

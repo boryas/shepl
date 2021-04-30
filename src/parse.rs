@@ -3,8 +3,10 @@ use crate::ast::{Arg, Stmt};
 use crate::lex::{lex, Lexemes, Tok, Toks};
 use crate::{err, Mode};
 use nom::{
-    bytes::complete::tag, character::complete::multispace0, combinator::all_consuming,
-    error::context, IResult, InputIter,
+    bytes::complete::tag,
+    character::complete::multispace0,
+    combinator::{all_consuming, map},
+    IResult, InputIter,
 };
 use std::cell::RefCell;
 
@@ -32,7 +34,7 @@ pub mod cmd {
     use crate::{
         ast::{Arg, Cmd, Stmt},
         err,
-        lex::{Lexemes, Tok},
+        lex::{Lexemes, Tok, Toks},
     };
     use nom::{
         branch::alt,
@@ -90,8 +92,11 @@ pub mod cmd {
         }
     }
 
-    fn expr_arg2(_input: Lexemes) -> IResult<Lexemes, Arg, err::Err<Lexemes>> {
-        Err(nom::Err::Error(err::Err::Unimp))
+    fn expr_arg2(input: Lexemes) -> IResult<Lexemes, Arg, err::Err<Lexemes>> {
+        let (input, _) = tag(Toks::new(&[Tok::OpenModeToggle]))(input)?;
+        let (input, e) = crate::parse::expr::expr2(input)?;
+        let (input, _) = tag(Toks::new(&[Tok::CloseParen]))(input)?;
+        Ok((input, Arg::Rec(Box::new(e))))
     }
 
     fn cmd_arg2(input: Lexemes) -> IResult<Lexemes, Arg, err::Err<Lexemes>> {
@@ -103,26 +108,28 @@ pub mod cmd {
         alt((expr_arg2, cmd_arg2))(input)
     }
 
-    pub fn cmd2(input: Lexemes) -> IResult<Lexemes, Stmt, err::Err<Lexemes>> {
+    pub fn cmd2(input: Lexemes) -> IResult<Lexemes, Cmd, err::Err<Lexemes>> {
         let (input, cmd) = word(input)?;
         let (input, args) = many0(arg2)(input)?;
         Ok((
             input,
-            Stmt::Cmd(Cmd {
+            Cmd {
                 cmd: cmd,
                 args: args,
-            }),
+            },
         ))
     }
 }
 
 pub mod expr {
-    use crate::ast::{BinOp, Expr, Single, Stmt};
-    use crate::err;
-    use crate::lex::Lexemes;
+    use crate::{
+        ast::{BinOp, Expr, Single, Stmt},
+        err,
+        lex::{Lexemes, Tok},
+    };
     use nom::{
         branch::alt,
-        bytes::complete::tag,
+        bytes::complete::{tag, take},
         character::complete::{alphanumeric0, anychar, digit1, multispace0, multispace1, one_of},
         combinator::{map_res, opt, recognize, verify},
         error::context,
@@ -262,24 +269,30 @@ pub mod expr {
         )(input)
     }
 
-    pub fn expr2(_input: Lexemes) -> IResult<Lexemes, Stmt, err::Err<Lexemes>> {
-        Err(nom::Err::Error(err::Err::Unimp))
+    fn integer2(input: Lexemes) -> IResult<Lexemes, Single, err::Err<Lexemes>> {
+        let (input, lx) = take(1usize)(input)?;
+        match &lx.lxs[0].tok {
+            Tok::IntLit(i) => Ok((input, Single::Integer(*i))),
+            _ => Err(nom::Err::Error(err::Err::NotInt(lx))),
+        }
     }
-}
 
-fn expr_stmt(input: &str) -> IResult<&str, Stmt, err::Err<&str>> {
-    let (input, e) = crate::parse::expr::expr(input)?;
-    Ok((input, Stmt::Expr(e)))
-}
+    fn str2(input: Lexemes) -> IResult<Lexemes, Single, err::Err<Lexemes>> {
+        let (input, lx) = take(1usize)(input)?;
+        match &lx.lxs[0].tok {
+            Tok::StrLit(s) => Ok((input, Single::Str((*s).to_string()))),
+            _ => Err(nom::Err::Error(err::Err::NotStr(lx))),
+        }
+    }
 
-pub fn stmt<'a, 'b>(input: &'a str, mode: &'b Mode) -> IResult<&'a str, Stmt, err::Err<&'a str>> {
-    let (input, _) = multispace0(input)?;
-    let (input, ret) = match mode {
-        Mode::Shell => context("cmd mode", cmd::cmd)(input),
-        Mode::Repl => context("expr mode", expr_stmt)(input),
-    }?;
-    let (input, _) = context("stmt", all_consuming(multispace0))(input)?;
-    Ok((input, ret))
+    fn single2(input: Lexemes) -> IResult<Lexemes, Expr, err::Err<Lexemes>> {
+        let (input, s) = alt((integer2, str2))(input)?;
+        Ok((input, Expr::Single(s)))
+    }
+
+    pub fn expr2(input: Lexemes) -> IResult<Lexemes, Expr, err::Err<Lexemes>> {
+        single2(input)
+    }
 }
 
 pub fn parse<'a, 'b>(
@@ -287,8 +300,8 @@ pub fn parse<'a, 'b>(
     mode: &'b Mode,
 ) -> IResult<Lexemes<'a>, Stmt, err::Err<Lexemes<'a>>> {
     let (input, ret) = match mode {
-        Mode::Shell => cmd::cmd2(input),
-        Mode::Repl => expr::expr2(input),
+        Mode::Shell => map(cmd::cmd2, |c| Stmt::Cmd(c))(input),
+        Mode::Repl => map(expr::expr2, |e| Stmt::Expr(e))(input),
     }?;
     // TODO: all_consuming or equivalent
     Ok((input, ret))
