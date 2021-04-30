@@ -4,9 +4,10 @@ use std::io::Write;
 
 use crate::{
     ast::{Arg, BinOp, Cmd, Expr, Single, Special, Stmt},
+    err,
     lex::{lex, Lexemes},
-    parse::{parse},
-    err, Err, Mode
+    parse::parse,
+    Err, Mode,
 };
 
 use nom::{
@@ -103,19 +104,6 @@ fn eval_expr(env: &mut Env, expr: Expr) -> Result<Value, Err> {
         Expr::Assign(n, expr) => eval_assign(env, &n, expr),
     }
 }
-
-/*
-fn parse(input: &str, mode: &Mode) -> Result<Stmt, Err> {
-    match stmt(input, mode) {
-        Ok(("", s)) => Ok(s),
-        Err(nom::Err::Error(e)) | Err(nom::Err::Failure(e)) => {
-            println!("{}, {:?}", input, e);
-            Err(Err::Parse)
-        }
-        _ => Err(Err::Parse),
-    }
-}
-*/
 
 fn run_cmd(env: &mut Env, cmd: Cmd) -> Result<Value, Err> {
     let mut proc = std::process::Command::new(cmd.cmd);
@@ -225,11 +213,11 @@ pub fn replnsh() {
             Ok((rest, _)) => {
                 println!("didn't lex: {}", rest);
                 continue;
-            },
+            }
             Err(e) => {
                 println!("lex error: {:?}", e);
                 continue;
-            },
+            }
         };
         let lxs = Lexemes::new(&lx[..]);
         match parse(lxs, &mut mode) {

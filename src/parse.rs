@@ -1,8 +1,11 @@
 extern crate nom;
-use crate::{err, Mode};
 use crate::ast::{Arg, Stmt};
 use crate::lex::{lex, Lexemes, Tok, Toks};
-use nom::{bytes::complete::tag, character::complete::multispace0, combinator::all_consuming, error::context, IResult, InputIter};
+use crate::{err, Mode};
+use nom::{
+    bytes::complete::tag, character::complete::multispace0, combinator::all_consuming,
+    error::context, IResult, InputIter,
+};
 use std::cell::RefCell;
 
 thread_local! {
@@ -28,15 +31,15 @@ fn dec_toggle_depth() {
 pub mod cmd {
     use crate::{
         ast::{Arg, Cmd, Stmt},
-        lex::{Lexemes, Tok},
         err,
+        lex::{Lexemes, Tok},
     };
     use nom::{
         branch::alt,
         bytes::complete::{tag, take, take_while1},
         character::complete::multispace1,
-        combinator::{recognize},
-        multi::{many0},
+        combinator::recognize,
+        multi::many0,
         IResult,
     };
 
@@ -83,7 +86,7 @@ pub mod cmd {
         let (rest, lx) = take(1usize)(input)?;
         match &lx.lxs[0].tok {
             Tok::Word(w) => Ok((rest, w.clone())),
-            _ => Err(nom::Err::Error(err::Err::NotWord(lx)))
+            _ => Err(nom::Err::Error(err::Err::NotWord(lx))),
         }
     }
 
@@ -103,14 +106,20 @@ pub mod cmd {
     pub fn cmd2(input: Lexemes) -> IResult<Lexemes, Stmt, err::Err<Lexemes>> {
         let (input, cmd) = word(input)?;
         let (input, args) = many0(arg2)(input)?;
-        Ok((input, Stmt::Cmd(Cmd { cmd: cmd, args: args })))
+        Ok((
+            input,
+            Stmt::Cmd(Cmd {
+                cmd: cmd,
+                args: args,
+            }),
+        ))
     }
 }
 
 pub mod expr {
     use crate::ast::{BinOp, Expr, Single, Stmt};
-    use crate::lex::{Lexemes};
     use crate::err;
+    use crate::lex::Lexemes;
     use nom::{
         branch::alt,
         bytes::complete::tag,
@@ -306,7 +315,7 @@ fn tok_tag_shell_word() {
             assert_eq!(rest.lxs[1].tok, Tok::Word("foo".to_string()));
             assert_eq!(1, tagged.lxs.len());
             assert_eq!(tagged.lxs[0].tok, expected);
-        },
+        }
         _e => {
             panic!("wrong token!");
             // TODO test error message quality?
@@ -327,7 +336,10 @@ fn parse_simple_cmd() {
         Ok((rest, Stmt::Cmd(cmd))) => {
             assert_eq!(rest.lxs.len(), 0);
             assert_eq!(cmd.cmd, "ls".to_string());
-            assert_eq!(cmd.args, vec![Arg::Raw("-l".to_string()), Arg::Raw("foo".to_string())]);
+            assert_eq!(
+                cmd.args,
+                vec![Arg::Raw("-l".to_string()), Arg::Raw("foo".to_string())]
+            );
             println!("{:?}", cmd);
         }
         e => panic!("bad parse {:?}", e),

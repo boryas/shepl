@@ -54,7 +54,7 @@ pub struct Toks<'a> {
     pub ts: &'a [Tok],
 }
 
-impl <'a> Toks<'a> {
+impl<'a> Toks<'a> {
     pub fn new(ts: &'a [Tok]) -> Self {
         Toks { ts: ts }
     }
@@ -84,7 +84,7 @@ pub struct Lexemes<'a> {
     pub lxs: &'a [Lexeme],
 }
 
-impl <'a> Lexemes<'a> {
+impl<'a> Lexemes<'a> {
     pub fn new(lxs: &'a [Lexeme]) -> Self {
         Lexemes { lxs: lxs }
     }
@@ -125,7 +125,10 @@ impl<'a> InputTake for Lexemes<'a> {
     }
 
     fn take_split(&self, count: usize) -> (Self, Self) {
-        (Lexemes::new(&self.lxs[count..]), Lexemes::new(&self.lxs[..count]))
+        (
+            Lexemes::new(&self.lxs[count..]),
+            Lexemes::new(&self.lxs[..count]),
+        )
     }
 }
 
@@ -137,7 +140,10 @@ impl<'a> InputLength for Lexemes<'a> {
 
 impl<'a, 'b> Compare<Toks<'b>> for Lexemes<'a> {
     fn compare(&self, toks: Toks<'b>) -> CompareResult {
-        let pos = self.iter_elements().zip(toks.ts.iter()).position(|(l, t)| l.tok != *t);
+        let pos = self
+            .iter_elements()
+            .zip(toks.ts.iter())
+            .position(|(l, t)| l.tok != *t);
         match pos {
             None => {
                 if self.lxs.len() >= toks.ts.len() {
@@ -145,7 +151,7 @@ impl<'a, 'b> Compare<Toks<'b>> for Lexemes<'a> {
                 } else {
                     CompareResult::Incomplete
                 }
-            },
+            }
             Some(_) => CompareResult::Error,
         }
     }
