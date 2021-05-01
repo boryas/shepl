@@ -5,7 +5,7 @@ use std::io::Write;
 use crate::{
     ast::{Arg, BinOp, Cmd, Expr, Single, Special, Stmt},
     err,
-    lex::{lex, Op, Lexemes},
+    lex::{lex, Lexemes, Op},
     parse::parse,
     Err, Mode,
 };

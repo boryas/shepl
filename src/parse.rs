@@ -2,11 +2,7 @@ extern crate nom;
 use crate::ast::{Arg, Stmt};
 use crate::lex::{lex, Lexemes, Tok, Toks};
 use crate::{err, Mode};
-use nom::{
-    bytes::complete::tag,
-    combinator::map,
-    IResult, InputIter,
-};
+use nom::{bytes::complete::tag, combinator::map, IResult, InputIter};
 
 pub mod cmd {
     use crate::{
@@ -161,7 +157,10 @@ pub mod expr {
         let (input, b1) = expr(input)?;
         let (input, _) = tag(Toks::new(&[Tok::Else]))(input)?;
         let (input, b2) = expr(input)?;
-        Ok((input, Expr::Cond(Box::new(pred), Box::new(b1), Box::new(b2))))
+        Ok((
+            input,
+            Expr::Cond(Box::new(pred), Box::new(b1), Box::new(b2)),
+        ))
     }
 
     pub fn expr(input: Lexemes) -> IResult<Lexemes, Expr, err::Err<Lexemes>> {
