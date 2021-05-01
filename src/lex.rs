@@ -11,7 +11,7 @@ use nom::{
 use std::cell::RefCell;
 use std::collections::VecDeque;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Op {
     Add,
     Sub,

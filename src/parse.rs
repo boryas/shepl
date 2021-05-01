@@ -104,7 +104,6 @@ pub mod expr {
         Err(nom::Err::Error(err::Err::NotIden(lx)))
     }
 
-
     fn iden(input: Lexemes) -> IResult<Lexemes, Single, err::Err<Lexemes>> {
         match tok(input)? {
             (input, Tok::Iden(s)) => Ok((input, Single::Iden((*s).to_string()))),
@@ -129,8 +128,27 @@ pub mod expr {
         Ok((input, Expr::Single(s)))
     }
 
+    fn not_op_error(input: Lexemes) -> IResult<Lexemes, Op, err::Err<Lexemes>> {
+        let (_, lx) = take(1usize)(input)?;
+        Err(nom::Err::Error(err::Err::NotOp(lx)))
+    }
+
+    fn op(input: Lexemes) -> IResult<Lexemes, Op, err::Err<Lexemes>> {
+        match tok(input)? {
+            (input, Tok::Op(o)) => Ok((input, *o)),
+            _ => not_op_error(input),
+        }
+    }
+
+    fn binop(input: Lexemes) -> IResult<Lexemes, Expr, err::Err<Lexemes>> {
+        let (input, e1) = single(input)?;
+        let (input, op) = op(input)?;
+        let (input, e2) = expr(input)?;
+        Ok((input, Expr::BinOp(op, Box::new(e1), Box::new(e2))))
+    }
+
     pub fn expr(input: Lexemes) -> IResult<Lexemes, Expr, err::Err<Lexemes>> {
-        alt((assign, single))(input)
+        alt((assign, binop, single))(input)
     }
 }
 

@@ -1,4 +1,5 @@
 use crate::Mode;
+use crate::lex::Op;
 
 #[derive(Debug, PartialEq)]
 pub enum BinOp {
@@ -38,7 +39,7 @@ pub enum Single {
 #[derive(Debug, PartialEq)]
 pub enum Expr {
     Single(Single),
-    BinOp(BinOp, Box<Expr>, Box<Expr>),    // expr + expr
+    BinOp(Op, Box<Expr>, Box<Expr>),    // expr + expr
     Cond(Box<Expr>, Box<Expr>, Box<Expr>), // if expr then expr else expr
     Assign(String, Box<Expr>),             // let iden = expr
     Cmd(Cmd),                              // iden arg1 arg2 ... argN

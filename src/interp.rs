@@ -5,7 +5,7 @@ use std::io::Write;
 use crate::{
     ast::{Arg, BinOp, Cmd, Expr, Single, Special, Stmt},
     err,
-    lex::{lex, Lexemes},
+    lex::{lex, Op, Lexemes},
     parse::parse,
     Err, Mode,
 };
@@ -62,15 +62,25 @@ fn eval_single(env: &mut Env, e: Single) -> Result<Value, Err> {
     }
 }
 
-fn eval_binop(env: &mut Env, op: BinOp, left: Box<Expr>, right: Box<Expr>) -> Result<Value, Err> {
+fn eval_binop(env: &mut Env, op: Op, left: Box<Expr>, right: Box<Expr>) -> Result<Value, Err> {
     let lv = eval_expr(env, *left)?;
     let rv = eval_expr(env, *right)?;
     match (lv, rv) {
         (Value::Integer(l), Value::Integer(r)) => match op {
-            BinOp::Add => Ok(Value::Integer(l + r)),
-            BinOp::Sub => Ok(Value::Integer(l - r)),
-            BinOp::Mul => Ok(Value::Integer(l * r)),
-            BinOp::Div => Ok(Value::Integer(l / r)),
+            Op::Add => Ok(Value::Integer(l + r)),
+            Op::Sub => Ok(Value::Integer(l - r)),
+            Op::Mul => Ok(Value::Integer(l * r)),
+            Op::Div => Ok(Value::Integer(l / r)),
+            // Need bool!
+            /*
+            Op::Eq => Ok(Value::Integer(l == r)),
+            Op::Neq => Ok(Value::Integer(l != r)),
+            Op::Gt => Ok(Value::Integer(l > r)),
+            Op::Gte => Ok(Value::Integer(l >= r)),
+            Op::Lt => Ok(Value::Integer(l < r)),
+            Op::Lte => Ok(Value::Integer(l <= r)),
+            */
+            _ => Err(Err::Eval),
         },
         _ => Err(Err::Eval),
     }

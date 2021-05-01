@@ -7,6 +7,7 @@ pub enum Err<I> {
     NotInt(I),
     NotStr(I),
     NotIden(I),
+    NotOp(I),
     Int(I, String),
     Nom(I, ErrorKind),
 }
