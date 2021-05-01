@@ -71,7 +71,7 @@ fn eval_binop(env: &mut Env, op: Op, left: Box<Expr>, right: Box<Expr>) -> Resul
             Op::Sub => Ok(Value::Integer(l - r)),
             Op::Mul => Ok(Value::Integer(l * r)),
             Op::Div => Ok(Value::Integer(l / r)),
-            // Need bool!
+            // TODO: Need bool!
             /*
             Op::Eq => Ok(Value::Integer(l == r)),
             Op::Neq => Ok(Value::Integer(l != r)),

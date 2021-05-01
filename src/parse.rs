@@ -123,8 +123,15 @@ pub mod expr {
         Ok((input, Expr::Assign(iden_str, Box::new(e))))
     }
 
+    fn paren(input: Lexemes) -> IResult<Lexemes, Single, err::Err<Lexemes>> {
+        let (input, _) = tag(Toks::new(&[Tok::OpenParen]))(input)?;
+        let (input, e) = expr(input)?;
+        let (input, _) = tag(Toks::new(&[Tok::CloseParen]))(input)?;
+        Ok((input, Single::Paren(Box::new(e))))
+    }
+
     fn single(input: Lexemes) -> IResult<Lexemes, Expr, err::Err<Lexemes>> {
-        let (input, s) = alt((integer, str, iden))(input)?;
+        let (input, s) = alt((integer, str, iden, paren))(input)?;
         Ok((input, Expr::Single(s)))
     }
 
