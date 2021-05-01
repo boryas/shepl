@@ -45,45 +45,6 @@ pub mod cmd {
         IResult,
     };
 
-    fn arg_char(c: char) -> bool {
-        (c != ' ')
-            && (c != '\t')
-            && (c != '\n')
-            && (c != '\r')
-            && ((crate::parse::get_toggle_depth() % 2) == 0 || c != ')')
-    }
-
-    fn cmd_arg(input: &str) -> IResult<&str, Arg, err::Err<&str>> {
-        let (input, a) = take_while1(arg_char)(input)?;
-        Ok((input, Arg::Raw(a.to_string())))
-    }
-
-    fn expr_arg(input: &str) -> IResult<&str, Arg, err::Err<&str>> {
-        let (input, _) = tag("$(")(input)?;
-        crate::parse::inc_toggle_depth();
-        let (input, e) = crate::parse::expr::expr(input)?;
-        let (input, _) = tag(")")(input)?;
-        crate::parse::dec_toggle_depth();
-        Ok((input, Arg::Rec(Box::new(e))))
-    }
-
-    fn arg(input: &str) -> IResult<&str, Arg, err::Err<&str>> {
-        let (input, _) = multispace1(input)?;
-        alt((expr_arg, cmd_arg))(input)
-    }
-
-    pub fn cmd(input: &str) -> IResult<&str, Stmt, err::Err<&str>> {
-        let (input, f) = recognize(cmd_arg)(input)?;
-        let (input, v) = many0(arg)(input)?;
-        Ok((
-            input,
-            Stmt::Cmd(Cmd {
-                cmd: f.to_string(),
-                args: v,
-            }),
-        ))
-    }
-
     fn word(input: Lexemes) -> IResult<Lexemes, String, err::Err<Lexemes>> {
         let (rest, lx) = take(1usize)(input)?;
         match &lx.lxs[0].tok {
@@ -92,25 +53,25 @@ pub mod cmd {
         }
     }
 
-    fn expr_arg2(input: Lexemes) -> IResult<Lexemes, Arg, err::Err<Lexemes>> {
+    fn expr_arg(input: Lexemes) -> IResult<Lexemes, Arg, err::Err<Lexemes>> {
         let (input, _) = tag(Toks::new(&[Tok::OpenModeToggle]))(input)?;
-        let (input, e) = crate::parse::expr::expr2(input)?;
+        let (input, e) = crate::parse::expr::expr(input)?;
         let (input, _) = tag(Toks::new(&[Tok::CloseParen]))(input)?;
         Ok((input, Arg::Rec(Box::new(e))))
     }
 
-    fn cmd_arg2(input: Lexemes) -> IResult<Lexemes, Arg, err::Err<Lexemes>> {
+    fn cmd_arg(input: Lexemes) -> IResult<Lexemes, Arg, err::Err<Lexemes>> {
         let (rest, w) = word(input)?;
         Ok((rest, Arg::Raw(w)))
     }
 
-    fn arg2(input: Lexemes) -> IResult<Lexemes, Arg, err::Err<Lexemes>> {
-        alt((expr_arg2, cmd_arg2))(input)
+    fn arg(input: Lexemes) -> IResult<Lexemes, Arg, err::Err<Lexemes>> {
+        alt((expr_arg, cmd_arg))(input)
     }
 
-    pub fn cmd2(input: Lexemes) -> IResult<Lexemes, Cmd, err::Err<Lexemes>> {
+    pub fn cmd(input: Lexemes) -> IResult<Lexemes, Cmd, err::Err<Lexemes>> {
         let (input, cmd) = word(input)?;
-        let (input, args) = many0(arg2)(input)?;
+        let (input, args) = many0(arg)(input)?;
         Ok((
             input,
             Cmd {
@@ -138,137 +99,6 @@ pub mod expr {
         AsChar, IResult,
     };
 
-    fn integer(input: &str) -> IResult<&str, Expr, err::Err<&str>> {
-        println!("{}: int?", input);
-        let (input, neg) = opt(tag("-"))(input)?;
-        let (input, n) = context(
-            "int",
-            map_res(digit1, |ds: &str| i128::from_str_radix(&ds, 10)),
-        )(input)?;
-        let i = match neg {
-            Some(_) => n * -1,
-            None => n,
-        };
-        println!("int! {}: {}", input, i);
-        Ok((input, Expr::Single(Single::Integer(i))))
-    }
-
-    fn str(input: &str) -> IResult<&str, Expr, err::Err<&str>> {
-        // TODO: decide what characters you want in string literals
-        // TODO: escape codes
-        let (input, s) = context("str", delimited(tag("\""), alphanumeric0, tag("\"")))(input)?;
-        Ok((input, Expr::Single(Single::Str(s.to_string()))))
-    }
-
-    fn iden_char(c: &char) -> bool {
-        (*c).is_alphanum() || *c == '_'
-    }
-
-    fn valid_iden(s: &str) -> bool {
-        // TODO: use a set
-        !(s == "if" || s == "then" || s == "else" || s == "let")
-    }
-
-    fn iden(input: &str) -> IResult<&str, Expr, err::Err<&str>> {
-        let (input, id) = context(
-            "iden",
-            verify(
-                recognize(tuple((
-                    verify(anychar, |c: &char| (*c).is_alpha() || *c == '_'),
-                    many0(verify(anychar, iden_char)),
-                ))),
-                valid_iden,
-            ),
-        )(input)?;
-        Ok((input, Expr::Single(Single::Iden(id.to_string()))))
-    }
-
-    fn paren(input: &str) -> IResult<&str, Expr, err::Err<&str>> {
-        let (input, inner) = context("paren", delimited(tag("("), expr, tag(")")))(input)?;
-        Ok((input, Expr::Single(Single::Paren(Box::new(inner)))))
-    }
-
-    fn single(input: &str) -> IResult<&str, Expr, err::Err<&str>> {
-        context("single", alt((integer, iden, str, paren)))(input)
-    }
-
-    fn binop(input: &str) -> IResult<&str, Expr, err::Err<&str>> {
-        let (input, (e1, _, op, _, e2)) = context(
-            "binop",
-            tuple((single, multispace0, one_of("+-*/"), multispace0, single)),
-        )(input)?;
-        Ok((
-            input,
-            Expr::BinOp(
-                match op {
-                    '+' => BinOp::Add,
-                    '-' => BinOp::Sub,
-                    '*' => BinOp::Mul,
-                    '/' => BinOp::Div,
-                    _ => unreachable!(),
-                },
-                Box::new(e1),
-                Box::new(e2),
-            ),
-        ))
-    }
-
-    fn cmd(input: &str) -> IResult<&str, Expr, err::Err<&str>> {
-        let (input, _) = context("cmd expr", tag("$("))(input)?;
-        crate::parse::inc_toggle_depth();
-        let (input, c) = context("cmd expr", crate::parse::cmd::cmd)(input)?;
-        // TODO should really be "match command or Err"
-        let ret = match c {
-            Stmt::Cmd(c) => Expr::Cmd(c),
-            Stmt::Expr(e) => e,
-        };
-        let (input, _) = context("cmd expr", tag(")"))(input)?;
-        crate::parse::dec_toggle_depth();
-        Ok((input, ret))
-    }
-
-    fn cond(input: &str) -> IResult<&str, Expr, err::Err<&str>> {
-        let (input, _if) = tag("if")(input)?;
-        let (input, pred) = expr(input)?;
-        let (input, _then) = tag("then")(input)?;
-        let (input, br1) = expr(input)?;
-        let (input, _else) = tag("else")(input)?;
-        let (input, br2) = expr(input)?;
-        Ok((
-            input,
-            Expr::Cond(Box::new(pred), Box::new(br1), Box::new(br2)),
-        ))
-    }
-
-    fn assign(input: &str) -> IResult<&str, Expr, err::Err<&str>> {
-        let (input, _let) = tag("let")(input)?;
-        let (input, iden) = delimited(multispace1, iden, multispace1)(input)?;
-        let name = match iden {
-            Expr::Single(Single::Iden(name)) => name,
-            _ => unreachable!(),
-        };
-        let (input, _eq) = tag("=")(input)?;
-        let (input, expr) = expr(input)?;
-        Ok((input, Expr::Assign(name, Box::new(expr))))
-    }
-
-    pub fn expr(input: &str) -> IResult<&str, Expr, err::Err<&str>> {
-        context(
-            "expr",
-            delimited(
-                multispace0,
-                alt((
-                    context("assign", assign),
-                    context("cond", cond),
-                    cmd,
-                    binop,
-                    single,
-                )),
-                multispace0,
-            ),
-        )(input)
-    }
-
     fn tok(input: Lexemes) -> IResult<Lexemes, &Tok, err::Err<Lexemes>> {
         let (input, lx) = take(1usize)(input)?;
         Ok((input, &lx.lxs[0].tok))
@@ -279,7 +109,7 @@ pub mod expr {
         Err(nom::Err::Error(err::Err::NotInt(lx)))
     }
 
-    fn integer2(input: Lexemes) -> IResult<Lexemes, Single, err::Err<Lexemes>> {
+    fn integer(input: Lexemes) -> IResult<Lexemes, Single, err::Err<Lexemes>> {
         match tok(input)? {
             (input, Tok::IntLit(i)) => Ok((input, Single::Integer(*i))),
             _ => not_int_error(input),
@@ -291,7 +121,7 @@ pub mod expr {
         Err(nom::Err::Error(err::Err::NotStr(lx)))
     }
 
-    fn str2(input: Lexemes) -> IResult<Lexemes, Single, err::Err<Lexemes>> {
+    fn str(input: Lexemes) -> IResult<Lexemes, Single, err::Err<Lexemes>> {
         match tok(input)? {
             (input, Tok::StrLit(s)) => Ok((input, Single::Str((*s).to_string()))),
             _ => not_str_error(input),
@@ -304,32 +134,32 @@ pub mod expr {
     }
 
 
-    fn iden2(input: Lexemes) -> IResult<Lexemes, Single, err::Err<Lexemes>> {
+    fn iden(input: Lexemes) -> IResult<Lexemes, Single, err::Err<Lexemes>> {
         match tok(input)? {
             (input, Tok::Iden(s)) => Ok((input, Single::Iden((*s).to_string()))),
             _ => not_iden_error(input),
         }
     }
 
-    fn assign2(input: Lexemes) -> IResult<Lexemes, Expr, err::Err<Lexemes>> {
-        let (input, iden) = iden2(input)?;
+    fn assign(input: Lexemes) -> IResult<Lexemes, Expr, err::Err<Lexemes>> {
+        let (input, iden) = iden(input)?;
         let iden_str = match iden {
             Single::Iden(s) => s,
             _ => "".to_string(), // TODO unreachable..
         };
         let (input, _) = tag(Toks::new(&[Tok::Op(Op::Assign)]))(input)?;
-        let (input, e) = expr2(input)?;
+        let (input, e) = expr(input)?;
         // TODO: make Assign nest an Iden?
         Ok((input, Expr::Assign(iden_str, Box::new(e))))
     }
 
-    fn single2(input: Lexemes) -> IResult<Lexemes, Expr, err::Err<Lexemes>> {
-        let (input, s) = alt((integer2, str2, iden2))(input)?;
+    fn single(input: Lexemes) -> IResult<Lexemes, Expr, err::Err<Lexemes>> {
+        let (input, s) = alt((integer, str, iden))(input)?;
         Ok((input, Expr::Single(s)))
     }
 
-    pub fn expr2(input: Lexemes) -> IResult<Lexemes, Expr, err::Err<Lexemes>> {
-        alt((assign2, single2))(input)
+    pub fn expr(input: Lexemes) -> IResult<Lexemes, Expr, err::Err<Lexemes>> {
+        alt((assign, single))(input)
     }
 }
 
@@ -338,8 +168,8 @@ pub fn parse<'a, 'b>(
     mode: &'b Mode,
 ) -> IResult<Lexemes<'a>, Stmt, err::Err<Lexemes<'a>>> {
     let (input, ret) = match mode {
-        Mode::Shell => map(cmd::cmd2, |c| Stmt::Cmd(c))(input),
-        Mode::Repl => map(expr::expr2, |e| Stmt::Expr(e))(input),
+        Mode::Shell => map(cmd::cmd, |c| Stmt::Cmd(c))(input),
+        Mode::Repl => map(expr::expr, |e| Stmt::Expr(e))(input),
     }?;
     // TODO: all_consuming or equivalent
     Ok((input, ret))
