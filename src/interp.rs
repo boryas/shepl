@@ -17,6 +17,7 @@ use nom::{
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Value {
+    Boolean(bool),
     Integer(i128),
     Str(String),
 }
@@ -24,6 +25,7 @@ pub enum Value {
 impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            Value::Boolean(b) => write!(f, "{}", b),
             Value::Integer(i) => write!(f, "{}", i),
             Value::Str(s) => write!(f, "{}", s),
         }
@@ -71,15 +73,22 @@ fn eval_binop(env: &mut Env, op: Op, left: Box<Expr>, right: Box<Expr>) -> Resul
             Op::Sub => Ok(Value::Integer(l - r)),
             Op::Mul => Ok(Value::Integer(l * r)),
             Op::Div => Ok(Value::Integer(l / r)),
-            // TODO: Need bool!
-            /*
-            Op::Eq => Ok(Value::Integer(l == r)),
-            Op::Neq => Ok(Value::Integer(l != r)),
-            Op::Gt => Ok(Value::Integer(l > r)),
-            Op::Gte => Ok(Value::Integer(l >= r)),
-            Op::Lt => Ok(Value::Integer(l < r)),
-            Op::Lte => Ok(Value::Integer(l <= r)),
-            */
+            Op::Xor => Ok(Value::Integer(l ^ r)),
+            Op::BitAnd => Ok(Value::Integer(l & r)),
+            Op::BitOr => Ok(Value::Integer(l | r)),
+            Op::Eq => Ok(Value::Boolean(l == r)),
+            Op::Neq => Ok(Value::Boolean(l != r)),
+            Op::Gt => Ok(Value::Boolean(l > r)),
+            Op::Gte => Ok(Value::Boolean(l >= r)),
+            Op::Lt => Ok(Value::Boolean(l < r)),
+            Op::Lte => Ok(Value::Boolean(l <= r)),
+            _ => Err(Err::Eval),
+        },
+        (Value::Boolean(l), Value::Boolean(r)) => match op {
+            Op::Eq => Ok(Value::Boolean(l == r)),
+            Op::Neq => Ok(Value::Boolean(l != r)),
+            Op::And => Ok(Value::Boolean(l && r)),
+            Op::Or => Ok(Value::Boolean(l || r)),
             _ => Err(Err::Eval),
         },
         _ => Err(Err::Eval),
@@ -89,6 +98,7 @@ fn eval_binop(env: &mut Env, op: Op, left: Box<Expr>, right: Box<Expr>) -> Resul
 fn eval_cond(env: &mut Env, pred: Box<Expr>, br1: Box<Expr>, br2: Box<Expr>) -> Result<Value, Err> {
     let p = eval_expr(env, *pred)?;
     let truth = match p {
+        Value::Boolean(b) => b,
         Value::Integer(i) => i != 0,
         Value::Str(s) => !s.is_empty(),
     };
