@@ -154,8 +154,18 @@ pub mod expr {
         Ok((input, Expr::BinOp(op, Box::new(e1), Box::new(e2))))
     }
 
+    fn cond(input: Lexemes) -> IResult<Lexemes, Expr, err::Err<Lexemes>> {
+        let (input, _) = tag(Toks::new(&[Tok::If]))(input)?;
+        let (input, pred) = expr(input)?;
+        let (input, _) = tag(Toks::new(&[Tok::Then]))(input)?;
+        let (input, b1) = expr(input)?;
+        let (input, _) = tag(Toks::new(&[Tok::Else]))(input)?;
+        let (input, b2) = expr(input)?;
+        Ok((input, Expr::Cond(Box::new(pred), Box::new(b1), Box::new(b2))))
+    }
+
     pub fn expr(input: Lexemes) -> IResult<Lexemes, Expr, err::Err<Lexemes>> {
-        alt((assign, binop, single))(input)
+        alt((assign, binop, cond, single))(input)
     }
 }
 
